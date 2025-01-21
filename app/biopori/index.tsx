@@ -3,6 +3,7 @@ import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Image, Platform 
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ScrollView } from "react-native";
 
 interface Biopori {
   id: string;
@@ -106,11 +107,13 @@ export default function Biopori() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-300">
+    <SafeAreaView className="flex-1 bg-gray-200">
+       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
       <View className="flex-row justify-between items-center px-4 py-4 ">
         <TextInput
           placeholder="Cari Biopori"
-          className="w-3/4 px-4 py-3 rounded-md bg-white text-xl"
+          className="w-4/5 px-4 py-3 rounded-xl bg-white text-xl"
+          placeholderTextColor="#888"
         />
         <TouchableOpacity
           onPress={() => setIsFormVisible(true)}
@@ -197,12 +200,12 @@ export default function Biopori() {
         {bioporiData.map((biopori) => (
           <View
             key={biopori.id}
-            className="bg-white border border-gray-200 rounded-md shadow-md p-4 mb-4"
+            className="bg-white border border-gray-200 rounded-xl shadow-md p-4 mb-4"
           >
             {biopori.photo && (
               <Image
                 source={{ uri: biopori.photo }}
-                className="w-full h-52 rounded-md"
+                className="w-full h-52 rounded-xl"
                 resizeMode="cover"
               />
             )}
@@ -230,7 +233,7 @@ export default function Biopori() {
               {!biopori.isFull && (
                 <TouchableOpacity
                   onPress={() => markAsFull(biopori.id)}
-                  className="bg-gradientStart p-3 rounded-md mx-5 w-1/3"
+                  className="bg-gradientStart p-3 rounded-xl mx-5 w-1/3"
                 >
                   <Text className="text-white text-center text-xl">Penuh</Text>
                 </TouchableOpacity>
@@ -246,7 +249,7 @@ export default function Biopori() {
               ) : (
                 <TouchableOpacity
                   onPress={() => console.log("Ubah Biopori", biopori.id)}
-                  className="bg-gradientStart p-3 rounded-md w-1/3"
+                  className="bg-buttonGreen p-3 rounded-xl w-1/3"
                 >
                   <Text className="text-white text-center text-xl">Ubah</Text>
                 </TouchableOpacity>
@@ -255,6 +258,7 @@ export default function Biopori() {
           </View>
         ))}
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

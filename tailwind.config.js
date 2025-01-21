@@ -8,7 +8,8 @@ module.exports = {
       colors: {
         navbar: '#369E4E', // Warna untuk menu navbar icon dan text dan button
         gradientStart: '#40A858', // Warna awal untuk gradient background
-        gradientEnd: '#2B9444', // Warna akhir untuk gradient background
+        gradientEnd: '#2B9444', 
+        buttonGreen: '#A2D54E'
       },
     },
   },
