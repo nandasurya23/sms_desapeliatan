@@ -253,6 +253,7 @@ const BankSampah = () => {
         </Portal>
       </View>
     </Provider>
+
   );
 };
 

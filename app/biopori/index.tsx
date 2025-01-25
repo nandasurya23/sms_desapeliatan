@@ -1,26 +1,22 @@
-import React, { useState } from "react";
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Image, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Image, Alert } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import * as ImagePicker from "expo-image-picker";
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { ScrollView } from "react-native";
+import { useRouter } from "expo-router";
+import * as SecureStore from 'expo-secure-store';
+import { format } from 'date-fns';
 
 interface Biopori {
   id: string;
   name: string;
-  startDate: string;
-  startTime: string;
-  endDate: string;
-  endTime: string;
-  photo: string | null;
+  date: string;
+  time: string;
+  end_date: Date;
+  end_time: string;
+  image_url: string;
   isFull: boolean;
+  isHarvested: boolean;
 }
-
-const calculateEndDate = (startDate: Date) => {
-  const end = new Date(startDate);
-  end.setDate(startDate.getDate() + 60);
-  return end;
-};
 
 export default function Biopori() {
   const [bioporiName, setBioporiName] = useState("");
@@ -28,236 +24,328 @@ export default function Biopori() {
   const [startTime, setStartTime] = useState(new Date());
   const [photo, setPhoto] = useState<string | null>(null);
   const [bioporiData, setBioporiData] = useState<Biopori[]>([]);
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [filteredData, setFilteredData] = useState<Biopori[]>([]);
 
-  const addBiopori = () => {
-    if (bioporiName && startDate && startTime) {
-      const endDate = calculateEndDate(startDate);
-      const endTime = new Date(startDate);
-      endTime.setHours(startTime.getHours(), startTime.getMinutes());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFullClicked, setIsFullClicked] = useState(false);
+  const [updateBioporiId, setUpdateBioporiId] = useState<string | null>(null);
 
-      const newBiopori: Biopori = {
-        id: String(bioporiData.length + 1),
-        name: bioporiName,
-        startDate: startDate.toLocaleDateString("id-ID", { day: '2-digit', month: 'long', year: 'numeric' }),
-        startTime: startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        endDate: endDate.toLocaleDateString("id-ID", { day: '2-digit', month: 'long', year: 'numeric' }),
-        endTime: endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        photo: photo,
-        isFull: false,
-      };
+  const router = useRouter();
 
-      setBioporiData([...bioporiData, newBiopori]);
-      setBioporiName("");
-      setStartDate(new Date());
-      setStartTime(new Date());
-      setPhoto(null);
-      setIsFormVisible(false);
-    } else {
-      alert("Semua inputan harus diisi!");
+  // Function to fetch biopori data
+  const fetchBioporiData = async () => {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      Alert.alert('Authentication Error', 'User is not authenticated');
+      return;
     }
-  };
 
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissionResult.granted) {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 1,
+    try {
+      const response = await fetch('https://sms-backend-desa-peliatan.vercel.app/api/biopori', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // Send token in the request header
+        },
       });
 
-      if (result && !result.canceled && result.assets) {
-        const uri = result.assets[0].uri;
-        setPhoto(uri);
+      const result = await response.json();
+      console.log("Biopori Data:", JSON.stringify(result.data, null, 2));
+      if (response.ok) {
+        setBioporiData(result.data); // Set the fetched data to state
+        setFilteredData(result.data); // Initialize filtered data with fetched data
+      } else {
+        console.error('Error fetching biopori data:', result.error);
+        Alert.alert('Error', result.error || 'An error occurred while fetching biopori data');
       }
-    } else {
-      alert("Permission untuk akses galeri tidak diberikan");
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'An error occurred while communicating with the server');
     }
   };
 
-  const markAsFull = (id: string) => {
-    const updatedBiopori = bioporiData.map((biopori) =>
-      biopori.id === id ? { ...biopori, isFull: true } : biopori
+  useEffect(() => {
+    fetchBioporiData(); // Fetch biopori data on component mount
+  }, []);
+
+  // Handle search query change
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    const filtered = bioporiData.filter((biopori) =>
+      biopori.name.toLowerCase().includes(query.toLowerCase()) // Filter biopori by name
     );
-    setBioporiData(updatedBiopori);
+    setFilteredData(filtered); // Update filtered data
   };
 
-  const markAsHarvested = (id: string) => {
-    const updatedBiopori = bioporiData.map((biopori) =>
-      biopori.id === id ? { ...biopori, isFull: false } : biopori
-    );
-    setBioporiData(updatedBiopori);
-  };
+  const handleUbahClick = (id: string) => {
+    const bioporiToUpdate = bioporiData.find((b) => b.id === id);
+    if (bioporiToUpdate) {
+      setBioporiName(bioporiToUpdate.name);
+      setStartDate(new Date(bioporiToUpdate.date));
+      setStartTime(new Date(`1970-01-01T${bioporiToUpdate.time}:00Z`));
+      setPhoto(bioporiToUpdate.image_url);
+      setUpdateBioporiId(id); // Simpan ID biopori yang sedang diubah
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setStartDate(selectedDate);
     }
   };
 
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      setStartTime(selectedTime);
+
+  // const handleUpdateBiopori = async () => {
+  //   if (!updateBioporiId) return;
+
+  //   try {
+  //     const updatedData = {
+  //       name: bioporiName,
+  //       startDate: startDate.toISOString().split("T")[0],
+  //       startTime: startTime.toISOString().split("T")[1].slice(0, 5),
+  //       endDate: calculateEndDate(startDate).toISOString().split("T")[0],
+  //       endTime: startTime.toISOString().split("T")[1].slice(0, 5),
+  //       photo,
+  //     };
+
+  //     // Update data di server
+  //     await updateBiopori(updateBioporiId, updatedData);
+
+  //     // Perbarui data lokal
+  //     setBioporiData((prevData) =>
+  //       prevData.map((b) => (b.id === updateBioporiId ? { ...b, ...updatedData } : b))
+  //     );
+
+  //     setUpdateBioporiId(null);
+  //     setBioporiName("");
+  //     setStartDate(new Date());
+  //     setStartTime(new Date());
+  //     setPhoto("");
+  //   } catch (error) {
+  //     console.error("Failed to update biopori:", error);
+  //   }
+  // };
+
+
+  const markAsFull = async (id: string) => {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      Alert.alert('Authentication Error', 'User is not authenticated');
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://sms-backend-desa-peliatan.vercel.app/api/biopori/${id}/full`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // Send token in the request header
+        },
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        // Update the local biopori data
+        setBioporiData((prevData) =>
+          prevData.map((biopori) =>
+            biopori.id === id ? { ...biopori, isFull: true } : biopori
+          )
+        );
+        setFilteredData((prevData) =>
+          prevData.map((biopori) =>
+            biopori.id === id ? { ...biopori, isFull: true } : biopori
+          )
+        );
+        Alert.alert("Berhasil", "Silahkan Klik Tombol Panen");
+      } else {
+        console.error('Error:', result.error);
+        Alert.alert('Error', result.error || 'An error occurred while marking biopori as full');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'An error occurred while communicating with the server');
+    }
+    setIsFullClicked(true);
+  };
+
+  const markAsHarvested = async (id: string) => {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      Alert.alert('Authentication Error', 'User is not authenticated');
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://sms-backend-desa-peliatan.vercel.app/api/biopori/${id}/harvested`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // Send token in the request header
+        },
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        // Update the local biopori data
+        setBioporiData((prevData) =>
+          prevData.map((biopori) =>
+            biopori.id === id ? { ...biopori, isHarvested: true } : biopori
+          )
+        );
+        setFilteredData((prevData) =>
+          prevData.map((biopori) =>
+            biopori.id === id ? { ...biopori, isHarvested: true } : biopori
+          )
+        );
+        Alert.alert("Berhasil", "Biopori anda sudah panen");
+      } else {
+        console.error('Error:', result.error);
+        Alert.alert('Error', result.error || 'An error occurred while marking biopori as harvested');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'An error occurred while communicating with the server');
+    }
+    setIsFullClicked(false);
+  };
+
+  const updateBiopori = async (id: string, updatedData: Partial<Biopori>) => {
+    const token = await SecureStore.getItemAsync("token");
+
+    if (!token) {
+      Alert.alert("Authentication Error", "User is not authenticated");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://sms-backend-desa-peliatan.vercel.app/api/biopori/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // Kirim token di header
+          },
+          body: JSON.stringify(updatedData), // Kirim data yang diperbarui
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Success", "Biopori updated successfully!");
+        console.log("Updated Biopori:", result);
+
+        // Jika data lokal perlu diperbarui:
+        setBioporiData((prevData) =>
+          prevData.map((b) =>
+            b.id === id ? { ...b, ...updatedData } : b
+          )
+        );
+      } else {
+        // Tangani error dari server
+        Alert.alert(
+          "Update Failed",
+          result.message || "Failed to update biopori. Please try again."
+        );
+      }
+    } catch (error) {
+      // Tangani error jaringan atau lainnya
+      console.error("Update Biopori Error:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
     }
   };
+
 
   return (
     <SafeAreaView className="flex-1 bg-gray-200">
-       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-      <View className="flex-row justify-between items-center px-4 py-4 ">
-        <TextInput
-          placeholder="Cari Biopori"
-          className="w-4/5 px-4 py-3 rounded-xl bg-white text-xl"
-          placeholderTextColor="#888"
-        />
-        <TouchableOpacity
-          onPress={() => setIsFormVisible(true)}
-          className="bg-gradientEnd rounded-full p-3"
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      {isFormVisible && (
-        <View className="px-4 py-4">
-          <Text className="text-xl font-bold mb-4">Form Tambah Biopori</Text>
-
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+        <View className="flex-row justify-between items-center px-4 py-4 ">
           <TextInput
-            value={bioporiName}
-            onChangeText={setBioporiName}
-            placeholder="Nama Biopori"
-            className="bg-white px-4 py-3 rounded-md mb-4 text-xl"
+            placeholder="Cari Biopori"
+            value={searchQuery}
+            onChangeText={handleSearch}
+            className="w-4/5 px-4 py-3 rounded-xl bg-white text-xl"
+            placeholderTextColor="#888"
           />
-
           <TouchableOpacity
-            onPress={() => setShowDatePicker(true)}
-            className="bg-white px-4 py-3 rounded-md mb-4 text-xl"
+            onPress={() => router.push("/form-biopori")}
+            className="bg-gradientEnd rounded-full p-3"
           >
-            <Text className="text-black text-xl">{startDate.toLocaleDateString("id-ID")}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setShowTimePicker(true)}
-            className="bg-white px-4 py-3 rounded-md mb-4 text-xl"
-          >
-            <Text className="text-black text-xl">{startTime.toLocaleTimeString()}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={pickImage}
-            className="bg-white px-4 py-3 rounded-md mb-4 text-xl"
-          >
-            <Text className="text-black text-xl">Pilih Foto</Text>
-          </TouchableOpacity>
-
-          {/* Menampilkan preview foto jika sudah ada */}
-          {photo && (
-            <View className="mb-4">
-              <Text className="text-gray-700 text-xl">Foto yang dipilih:</Text>
-              <Image
-                source={{ uri: photo }}
-                className="w-full h-48 rounded-md mt-2"
-                resizeMode="cover"
-              />
-            </View>
-          )}
-
-          <TouchableOpacity
-            onPress={addBiopori}
-            className="bg-gradientEnd p-4 rounded-md shadow"
-          >
-            <Text className="text-white text-center text-xl">Simpan</Text>
+            <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         </View>
-      )}
 
-      {/* Menampilkan DatePicker jika showDatePicker true */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={startDate}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-        />
-      )}
-
-      {/* Menampilkan TimePicker jika showTimePicker true */}
-      {showTimePicker && (
-        <DateTimePicker
-          value={startTime}
-          mode="time"
-          display="default"
-          onChange={handleTimeChange}
-        />
-      )}
-
-      <View className="flex-1 px-4 mt-4">
-        {bioporiData.map((biopori) => (
-          <View
-            key={biopori.id}
-            className="bg-white border border-gray-200 rounded-xl shadow-md p-4 mb-4"
-          >
-            {biopori.photo && (
-              <Image
-                source={{ uri: biopori.photo }}
-                className="w-full h-52 rounded-xl"
-                resizeMode="cover"
-              />
-            )}
-
-            <View className="flex-row justify-between my-4">
-              <Text className="text-xl font-bold">{biopori.name}</Text>
-            </View>
-
-            <View className="mb-4">
-              <View className="flex-row justify-between mb-4">
-                <Text className="text-gray-700 text-lg font-semibold">Mulai:</Text>
-                <Text className="text-gray-700 text-lg">{biopori.startDate}</Text>
-              </View>
-              <View className="flex-row justify-between">
-                <Text className="text-gray-700 text-lg font-semibold">Selesai:</Text>
-                <Text className="text-gray-700 text-lg">{biopori.endDate}</Text>
-              </View>
-            </View>
-            <View className="flex-row justify-between mb-4">
-              <Text className="text-gray-500 text-xl">Jam: {biopori.startTime}</Text>
-              <Text className="text-gray-500 text-xl">Jam: {biopori.endTime}</Text>
-            </View>
-
-            <View className="flex-row justify-center">
-              {!biopori.isFull && (
-                <TouchableOpacity
-                  onPress={() => markAsFull(biopori.id)}
-                  className="bg-gradientStart p-3 rounded-xl mx-5 w-1/3"
-                >
-                  <Text className="text-white text-center text-xl">Penuh</Text>
-                </TouchableOpacity>
+        <View className="flex-1 px-4 mt-4">
+          {filteredData.map((biopori) => (
+            <View key={biopori.id} className="bg-white border border-gray-200 rounded-xl shadow-md p-4 mb-4">
+              {biopori.image_url && (
+                <Image
+                  source={{ uri: biopori.image_url }}
+                  className="w-full h-52 rounded-xl"
+                  resizeMode="cover"
+                />
               )}
+              <View className="flex-row justify-between my-4">
+                <Text className="text-xl font-bold">{biopori.name}</Text>
+              </View>
+              <View className="mb-4">
+                <View className="flex-row justify-between mb-4">
+                  <Text className="text-gray-700 text-lg font-semibold">Mulai:</Text>
+                  {/* Pastikan startDate adalah objek Date */}
+                  <Text className="text-gray-700 text-lg">
+                    {biopori.date ? format(new Date(biopori.date), 'dd MMM yyyy') : '-'}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-700 text-lg font-semibold">Selesai:</Text>
+                  {/* Pastikan endDate adalah objek Date */}
+                  <Text className="text-gray-700 text-lg">
+                    {biopori.end_date ? format(new Date(biopori.end_date), 'dd MMM yyyy') : '-'}
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row justify-between mb-4">
+                <Text className="text-gray-500 text-xl">
+                  {/* Periksa dan format startTime */}
+                  Jam Mulai: {biopori.time
+                    ? format(new Date(`1970-01-01T${biopori.time.slice(0, 5)}:00Z`), 'HH:mm')
+                    : '-'}
 
-              {biopori.isFull ? (
+                </Text>
+                <Text className="text-gray-500 text-xl">
+                  {/* Periksa dan format endTime */}
+                  Jam Selesai: {biopori.end_time
+                    ? format(new Date(`1970-01-01T${biopori.end_time.slice(0, 5)}:00Z`), 'HH:mm')
+                    : '-'}
+
+                </Text>
+              </View>
+
+
+              <View className="flex-row justify-center">
+                {!isFullClicked && (
+                  <TouchableOpacity
+                    onPress={() => markAsFull(biopori.id)}
+                    className="bg-gradientStart p-3 rounded-xl mx-5 w-1/3"
+                  >
+                    <Text className="text-white text-center text-xl">Penuh</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  onPress={() => markAsHarvested(biopori.id)}
-                  className="bg-gradientEnd p-3 rounded-md w-1/2"
-                >
-                  <Text className="text-white text-center text-xl">Panen</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => console.log("Ubah Biopori", biopori.id)}
-                  className="bg-buttonGreen p-3 rounded-xl w-1/3"
+                  onPress={() => handleUbahClick(biopori.id)}
+                  className="bg-buttonGreen p-3 rounded-xl mx-5 w-1/3"
                 >
                   <Text className="text-white text-center text-xl">Ubah</Text>
                 </TouchableOpacity>
-              )}
+              </View>
+              <View className="flex items-center justify-center mt-5">
+                <TouchableOpacity
+                  onPress={() => markAsHarvested(biopori.id)}
+                  className={`bg-gradientEnd p-3 rounded-xl w-1/3 ${!isFullClicked ? 'bg-gray-500 opacity-50' : 'bg-gradientEnd'}`}
+                  disabled={!isFullClicked}
+                >
+                  <Text className="text-white text-center text-xl">Panen</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
