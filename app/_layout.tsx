@@ -3,8 +3,12 @@ import { SafeAreaView, View, ActivityIndicator, Alert, Text } from 'react-native
 import * as SecureStore from 'expo-secure-store';
 import { useRouter } from 'expo-router';
 import { Slot } from 'expo-router';
+import { EventEmitter } from 'expo-modules-core';
 import BottomNavbar from '@/components/BottomNavbar'; 
 import '../global.css'
+
+const eventEmitter = new EventEmitter<{ logout: () => void }>();
+
 
 const _layout = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -12,6 +16,7 @@ const _layout = () => {
   const router = useRouter();
 
   useEffect(() => {
+    console.error("Cek error: Jika ada string yang tidak dibungkus <Text>, error akan muncul di sini.");
     const checkLoginStatus = async () => {
         try {
             const userId = await SecureStore.getItemAsync('userId');
@@ -30,6 +35,13 @@ const _layout = () => {
     };
 
     checkLoginStatus();
+    const logoutListener = eventEmitter.addListener("logout", () => {
+      setIsLoggedIn(false);
+    });
+  
+    return () => {
+      logoutListener.remove(); // Hapus listener saat unmount
+    };
 }, [router]);
 
 
@@ -43,9 +55,18 @@ const _layout = () => {
 
   return (
     <SafeAreaView className="flex-1">
-      <View className="flex-1">
-        <Slot />
-      </View>
+<View className="flex-1">
+  {(() => {
+    try {
+      console.log("Slot sedang merender halaman ini:", <Slot />);
+      return <Slot />;
+    } catch (error) {
+      console.error("Error terjadi di Slot:", error);
+      return <Text>Error di Slot</Text>;
+    }
+  })()}
+</View>
+
       {isLoggedIn && <BottomNavbar />} {/* Render BottomNavbar only if logged in */}
     </SafeAreaView>
   );

@@ -1,26 +1,68 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons"; // Import Ionicons
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, Image, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { useRouter } from "expo-router";
-import { Menu, Button, Provider as PaperProvider } from "react-native-paper"; // Import PaperProvider
+import { Menu, Button, Provider as PaperProvider } from "react-native-paper";
+import { EventEmitter } from 'expo-modules-core';
 
 const ProfileScreen = () => {
-  const router = useRouter(); // Inisialisasi useRouter
-
-  // Dummy data for testing
-  const [username, setUsername] = useState("JohnDoe");
-  const [phoneNumber, setPhoneNumber] = useState("123-456-7890");
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [banjar, setBanjar] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [transactionHistory, setTransactionHistory] = useState([
-    { date: "2025-01-20", amount: "50kg" },
-  ]);
-  const [bioporiCount, setBioporiCount] = useState(5);
-
-  // State untuk menu banjar
+  const [bioporiCount, setBioporiCount] = useState(0);
   const [visible, setVisible] = useState(false);
+  const eventEmitter = new EventEmitter<{ logout: () => void }>();
+
+  // Fetch user data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = await SecureStore.getItemAsync("token");
+        if (!token) {
+          Alert.alert("Error", "Anda belum login.");
+          router.push("/auth/login");
+          return;
+        }
+  
+  
+        const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/profile", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+  
+        const text = await response.text();
+  
+        if (!response.ok) {
+          Alert.alert("Error", `Gagal mengambil data profil (${response.status})`);
+          return;
+        }
+  
+        const result = JSON.parse(text);
+        setUsername(result.data.username);
+        setPhoneNumber(result.data.phone_number);
+        setEmail(result.data.email);
+        setBanjar(result.data.banjar);
+        setProfileImage(result.data.profile_picture);
+        setBioporiCount(result.data.biopori_count);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        Alert.alert("Error", "Terjadi kesalahan saat mengambil data");
+      }
+    };
+  
+    fetchProfile();
+  }, []);
+  
+  
 
   // Handle image picking
   const handleImagePick = async () => {
@@ -32,20 +74,21 @@ const ProfileScreen = () => {
     });
 
     if (!result.canceled) {
-      setProfileImage(result.assets[0].uri); // Access uri from result.assets[0]
+      setProfileImage(result.assets[0].uri);
     }
   };
 
   // Handle logout
-  const handleLogout = () => {
-    // Logic to log out the user (e.g., clear session, navigate to login screen)
-    router.push("/auth/login"); // Navigasi menggunakan Expo Router
+  const handleLogout = async () => {
+    await SecureStore.deleteItemAsync("token");
+    eventEmitter.emit("logout");
+    router.push("/auth/login");
   };
+  
 
   return (
-    <PaperProvider> {/* Wrap the entire ProfileScreen in PaperProvider */}
+    <PaperProvider>
       <View className="flex-1 bg-white p-4">
-        {/* Profile Picture */}
         <View className="flex-row items-center mb-4">
           <TouchableOpacity onPress={handleImagePick}>
             <Image
@@ -55,31 +98,20 @@ const ProfileScreen = () => {
               className="w-20 h-20 rounded-full border border-gray-300"
             />
           </TouchableOpacity>
-          <Text className="ml-4 text-xl font-bold">{username}</Text>
+          <Text className="ml-4 text-xl font-bold">{username || "Loading..."}</Text>
         </View>
 
-        {/* User Info */}
-        <Text className="text-lg font-medium">Phone: {phoneNumber}</Text>
+        <Text className="text-lg font-medium">Phone: {phoneNumber || "Loading..."}</Text>
+        <Text className="text-lg font-medium">Email: {email || "Loading..."}</Text>
         <Text className="text-lg font-medium mb-2">Biopori Planted: {bioporiCount}</Text>
 
-        {/* Editable Fields */}
-        <TextInput
-          className="border-b border-gray-300 p-2 my-2"
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        {/* Menu for Banjar */}
         {banjar ? (
-          // Display selected Banjar name
           <Text className="text-lg font-medium my-2">{banjar}</Text>
         ) : (
-          // If no Banjar is selected, show the menu button
           <Menu
             visible={visible}
-            onDismiss={() => setVisible(false)} // Hide the menu when dismissed
-            anchor={<Button onPress={() => setVisible(true)}>Select Banjar</Button>} // Trigger the menu to open
+            onDismiss={() => setVisible(false)}
+            anchor={<Button onPress={() => setVisible(true)}>Select Banjar</Button>}
           >
             <Menu.Item onPress={() => setBanjar("Banjar A")} title="Banjar A" />
             <Menu.Item onPress={() => setBanjar("Banjar B")} title="Banjar B" />
@@ -87,27 +119,15 @@ const ProfileScreen = () => {
           </Menu>
         )}
 
-        {/* Transaction History */}
-        <View className="mt-4">
-          <Text className="text-lg font-medium">Transaction History</Text>
-          {transactionHistory.map((transaction, index) => (
-            <View key={index} className="flex-row justify-between my-2">
-              <Text className="text-sm">{transaction.date}</Text>
-              <Text className="text-sm">{transaction.amount}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Logout Button with Ionicons */}
         <TouchableOpacity
           onPress={handleLogout}
           className="mt-6 bg-red-500 p-3 rounded-full justify-center items-center"
         >
-          <Ionicons name="log-out-outline" size={24} color="white" /> {/* Ionicon for logout */}
+          <Ionicons name="log-out-outline" size={24} color="white" />
           <Text className="text-white font-semibold">Logout</Text>
         </TouchableOpacity>
       </View>
-    </PaperProvider> 
+    </PaperProvider>
   );
 };
 

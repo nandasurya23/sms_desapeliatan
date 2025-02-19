@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image, ScrollView, Alert } from "react-native";
+import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image, ScrollView } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as SecureStore from "expo-secure-store";
 import { useRouter } from 'expo-router';
@@ -23,42 +23,42 @@ export default function Home() {
         const fetchUserData = async () => {
             try {
                 const token = await SecureStore.getItemAsync("token");
-                if (token) {
-                    const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/user-data", {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": `Bearer ${token}`,
-                        },
-                    });
-    
-                    const data = await response.json();
-    
-                    if (response.ok) {
-                        // Check if 'id' exists in response
-                        if (data && data.id !== undefined) {
-                            setUserId(data.id);
-                            setUsername(data.username);
-                            await SecureStore.setItemAsync("userId", data.id.toString());
-                        } else {
-                            console.error("User ID not found in response data:", data);
-                            setError("Data pengguna tidak lengkap. ID tidak ditemukan.");
-                        }
+
+                if (!token) {
+                    router.replace("/auth/login"); // Paksa ke halaman login jika tidak ada token
+                    return;
+                }
+
+                const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/user-data", {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`,
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data && data.id !== undefined) {
+                        setUserId(data.id);
+                        setUsername(data.username);
+                        await SecureStore.setItemAsync("userId", data.id.toString());
                     } else {
-                        setError("Gagal mengambil data pengguna");
+                        console.error("User ID not found in response data:", data);
+                        setError("Data pengguna tidak lengkap. ID tidak ditemukan.");
                     }
                 } else {
-                    setError("Token tidak ditemukan.");
+                    setError("Gagal mengambil data pengguna");
                 }
             } catch (error) {
-                console.log("Error fetching user data:", error);
                 setError("Terjadi kesalahan saat mengambil data pengguna");
             }
         };
-    
+
         fetchUserData();
     }, []);
-    
+
 
     return (
         <SafeAreaView className="flex-1 bg-gray-200">

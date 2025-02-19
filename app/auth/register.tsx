@@ -48,11 +48,9 @@ const Register = () => {
                 Alert.alert("Success", "Registration successful! Please login.");
                 router.replace("/auth/login");
             } else {
-                console.log("Server Error:", data); // Menampilkan error server di console
                 Alert.alert("Error", data.error || "Something went wrong. Please try again.");
             }
         } catch (error) {
-            console.log("Request Error:", error); // Menampilkan error koneksi
             Alert.alert("Error", "Something went wrong. Please try again.");
         }
     };

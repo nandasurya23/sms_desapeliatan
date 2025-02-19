@@ -14,6 +14,7 @@ import { Modal, Portal, Button, Menu, Provider } from "react-native-paper";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { locations } from "@/data/locations";
+import { useRouter } from "expo-router";
 
 const BankSampah = () => {
   const [modalVisible, setModalVisible] = useState(false); // Modal
@@ -22,7 +23,8 @@ const BankSampah = () => {
   const [alamat, setAlamat] = useState(""); // Alamat
   const [beratSampah, setBeratSampah] = useState(""); // Berat Sampah
   const [selectedImages, setSelectedImages] = useState<string[]>([]); // Gambar
-  const [totalPenjualan, setTotalPenjualan] = useState(0); // Total Penjualan Sampah
+  const [totalPenjualan, setTotalPenjualan] = useState(0); 
+  const router = useRouter();
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);

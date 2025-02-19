@@ -50,7 +50,6 @@ export default function Biopori() {
       });
 
       const result = await response.json();
-      console.log("Biopori Data:", JSON.stringify(result.data, null, 2));
       if (response.ok) {
         setBioporiData(result.data); // Set the fetched data to state
         setFilteredData(result.data); // Initialize filtered data with fetched data
@@ -229,7 +228,6 @@ export default function Biopori() {
 
       if (response.ok) {
         Alert.alert("Success", "Biopori updated successfully!");
-        console.log("Updated Biopori:", result);
 
         // Jika data lokal perlu diperbarui:
         setBioporiData((prevData) =>
@@ -337,7 +335,7 @@ export default function Biopori() {
               <View className="flex items-center justify-center mt-5">
                 <TouchableOpacity
                   onPress={() => markAsHarvested(biopori.id)}
-                  className={`bg-gradientEnd p-3 rounded-xl w-1/3 ${!isFullClicked ? 'bg-gray-500 opacity-50' : 'bg-gradientEnd'}`}
+                  className={`bg-gradientEnd p-3 rounded-xl w-1/2 ${!isFullClicked ? 'bg-gray-500 opacity-50' : 'bg-gradientEnd'}`}
                   disabled={!isFullClicked}
                 >
                   <Text className="text-white text-center text-xl">Panen</Text>
