@@ -1,4 +1,4 @@
-import React, { useState, } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,7 +15,6 @@ const AddBioporiForm = () => {
     const [endDate, setEndDate] = useState<Date>(addDays(new Date(), 60)); // Set default to 60 days from now
     const [endTime, setEndTime] = useState<Date>(new Date());
     const [loading, setLoading] = useState(false);
-
     const [photo, setPhoto] = useState<string | undefined>();
 
     const router = useRouter();
@@ -32,27 +31,46 @@ const AddBioporiForm = () => {
 
             if (!result.canceled && result.assets) {
                 const uri = result.assets[0].uri;
-                setPhoto(uri); // Use setPhoto to store the image URI
-                setImageUri(uri); // Store imageUri if needed for submission
+                setPhoto(uri);
+                setImageUri(uri);
             }
         } else {
             alert("Permission untuk akses galeri tidak diberikan");
         }
     };
 
+    // Take a photo using the camera
+    const takePhoto = async () => {
+        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+        if (permissionResult.granted) {
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 1,
+            });
+
+            if (!result.canceled && result.assets) {
+                const uri = result.assets[0].uri;
+                setPhoto(uri);
+                setImageUri(uri);
+            }
+        } else {
+            alert("Permission untuk akses kamera tidak diberikan");
+        }
+    };
+
     // DateTimePicker handler
     const handleDateChange = (event: any, selectedDate: Date | undefined) => {
-        const currentDate = selectedDate || new Date(); // Default to current date if undefined
+        const currentDate = selectedDate || new Date();
         setDate(currentDate);
-        // Calculate End Date by adding 60 days
         const calculatedEndDate = addDays(currentDate, 60);
         setEndDate(calculatedEndDate);
     };
 
     const handleTimeChange = (event: any, selectedTime: Date | undefined) => {
-        const currentTime = selectedTime || new Date(); // Default to current time if undefined
+        const currentTime = selectedTime || new Date();
         setTime(currentTime);
-        // Set end time to the same as start time
         setEndTime(currentTime);
     };
 
@@ -70,7 +88,7 @@ const AddBioporiForm = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`, // Replace with actual token
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     name,
@@ -86,7 +104,7 @@ const AddBioporiForm = () => {
 
             if (response.ok) {
                 Alert.alert('Success', 'Biopori added successfully');
-                router.push('/biopori'); // Redirect after success (adjust path as needed)
+                router.push('/biopori');
             } else {
                 Alert.alert('Error', result.error || 'Something went wrong');
             }
@@ -106,19 +124,27 @@ const AddBioporiForm = () => {
 
                     {/* Image Picker */}
                     <View className="items-center mb-6">
-                        <TouchableOpacity onPress={pickImage} className="mb-4">
-                            {photo ? (
-                                <Image source={{ uri: photo }} className="w-96 h-64 rounded-xl" />
-                            ) : (
-                                <Ionicons name="camera" size={50} color="gray" />
-                            )}
-                        </TouchableOpacity>
-                        <Text className="text-lg text-gray-500">Tambah Foto Biopori</Text>
+                        <View className="flex-row justify-center space-x-4">
+                            {/* Tombol Kamera */}
+                            <TouchableOpacity onPress={takePhoto} className="p-4 bg-blue-500 rounded-full mx-2">
+                                <Ionicons name="camera" size={40} color="white" />
+                            </TouchableOpacity>
+
+                            {/* Tombol Galeri */}
+                            <TouchableOpacity onPress={pickImage} className="p-4 bg-green-500 rounded-full">
+                                <Ionicons name="image" size={40} color="white" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Tampilkan Gambar yang Dipilih */}
+                        {photo && (
+                            <Image source={{ uri: photo }} className="w-96 h-64 rounded-xl mt-4" />
+                        )}
                     </View>
 
                     {/* Name Input */}
                     <TextInput
-                        className="w-full px-3 py-3 rounded-xl mb-4 text-lg bg-white"
+                        className="w-full px-5 py-5 rounded-xl mb-4 text-lg bg-white"
                         placeholderTextColor="#888"
                         placeholder="Nama Biopori"
                         value={name}
@@ -128,7 +154,7 @@ const AddBioporiForm = () => {
                     {/* Date Picker */}
                     <Text className="text-lg text-gray-700 mb-2">Tanggal Mulai Tanam:</Text>
                     <View className="rounded-xl mb-4">
-                        <View className="rounded-xl mb-4 bg-gray-400 shadow-xl overflow-hidden">
+                        <View className="rounded-xl mb-4 bg-gray-600 shadow-xl overflow-hidden">
                             {Platform.OS === 'ios' ? (
                                 <DateTimePicker
                                     value={date}
@@ -188,7 +214,6 @@ const AddBioporiForm = () => {
                         )}
                     </TouchableOpacity>
                 </View>
-
             </ScrollView>
         </SafeAreaView>
     );
