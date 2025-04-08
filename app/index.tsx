@@ -94,8 +94,8 @@ export default function Home() {
                         <Text className="text-white text-xl font-bold">Total Transaksi: 50kg</Text>
                     </View>
                     <View className="flex-row items-center justify-between mb-5">
-                        <Text className="text-xl font-bold">Lokasi Daur Ulang Terdekat</Text>
-                        <Text className="text-xl text-green-600">Lihat Semua</Text>
+                        <Text className="text-lg font-bold">Lokasi Daur Ulang Terdekat</Text>
+                        <Text className="text-lg text-green-600">Lihat Semua</Text>
                     </View>
                     <FlatList
                         data={locations}
@@ -121,8 +121,8 @@ export default function Home() {
                     />
                     {/* Edukasi */}
                     <View className="flex-row items-center justify-between my-5">
-                        <Text className="text-xl font-bold">Edukasi & Tips Daur Ulang</Text>
-                        <Text className="text-xl text-green-600">Lihat Semua</Text>
+                        <Text className="text-lg font-bold">Edukasi & Tips Daur Ulang</Text>
+                        <Text className="text-lg text-green-600">Lihat Semua</Text>
                     </View>
                     <View className="bg-white rounded-xl shadow-md p-4 w-full">
                         <Image

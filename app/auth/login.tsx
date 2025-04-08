@@ -14,7 +14,7 @@ const Login = () => {
     const handleLogin = async () => {
         // Validasi input
         if (!username || !password) {
-            Alert.alert("Error", "Please enter both username and password.");
+            Alert.alert("Harap Isi Username dan Password");
             return;
         }
 
