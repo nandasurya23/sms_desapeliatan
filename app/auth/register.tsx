@@ -15,15 +15,30 @@ const Register = () => {
     const router = useRouter();
 
     const handleRegister = async () => {
+        // Validasi field kosong
         if (!username || !phoneNumber || !email || !password || !confirmPassword) {
-            Alert.alert("Error", "All fields are required");
+            Alert.alert("Error", "Semua field harus diisi");
             return;
         }
+    
+        // Validasi kesamaan password
         if (password !== confirmPassword) {
-            Alert.alert("Error", "Passwords do not match");
+            Alert.alert("Error", "Password tidak cocok");
             return;
         }
-
+    
+        // Validasi format email
+        if (!email.includes('@')) {
+            Alert.alert("Error", "Email harus mengandung @");
+            return;
+        }
+    
+        // Validasi panjang password
+        if (password.length < 6) {
+            Alert.alert("Error", "Password minimal 6 karakter");
+            return;
+        }
+    
         try {
             const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/register", {
                 method: "POST",
@@ -32,26 +47,29 @@ const Register = () => {
                 },
                 body: JSON.stringify({
                     username,
-                    phone_number: phoneNumber, // memastikan key sesuai dengan backend
-                    email, // Email added to the request
+                    phone_number: phoneNumber,
+                    email,
                     password,
                 }),
             });
-
+    
             const data = await response.json();
-
+    
             if (response.ok) {
-                // Simpan token JWT ke SecureStore
+                // Jika backend mengembalikan token (sesuaikan dengan response backend Anda)
                 if (data.token) {
-                    await SecureStore.setItemAsync("token", data.token); // Simpan token JWT langsung sebagai string
+                    await SecureStore.setItemAsync("token", data.token);
                 }
-                Alert.alert("Success", "Registration successful! Please login.");
+                
+                Alert.alert("Sukses", "Pendaftaran berhasil! Silakan login.");
                 router.replace("/auth/login");
             } else {
-                Alert.alert("Error", data.error || "Something went wrong. Please try again.");
+                // Menampilkan pesan error dari backend atau default message
+                Alert.alert("Error", data.error || "Terjadi kesalahan. Silakan coba lagi.");
             }
         } catch (error) {
-            Alert.alert("Error", "Something went wrong. Please try again.");
+            console.error("Register error:", error);
+            Alert.alert("Error", "Koneksi bermasalah. Silakan coba lagi.");
         }
     };
 

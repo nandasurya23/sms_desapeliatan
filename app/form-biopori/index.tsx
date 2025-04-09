@@ -1,25 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { format, addDays } from 'date-fns';
 
-const AddBioporiForm = () => {
+const BioporiForm = () => {
+    const { id } = useLocalSearchParams();
     const [imageUri, setImageUri] = useState<string | undefined>();
     const [name, setName] = useState('');
     const [date, setDate] = useState<Date>(new Date());
     const [time, setTime] = useState<Date>(new Date());
-    const [endDate, setEndDate] = useState<Date>(addDays(new Date(), 60)); // Set default to 60 days from now
+    const [endDate, setEndDate] = useState<Date>(addDays(new Date(), 60));
     const [endTime, setEndTime] = useState<Date>(new Date());
     const [loading, setLoading] = useState(false);
     const [photo, setPhoto] = useState<string | undefined>();
+    const [isEditMode, setIsEditMode] = useState(false);
 
     const router = useRouter();
 
-    // Pick an image from the gallery
+    // Load data for edit
+    useEffect(() => {
+        if (id) {
+            loadBioporiData();
+            setIsEditMode(true);
+        }
+    }, [id]);
+
+    const loadBioporiData = async () => {
+        try {
+            const token = await SecureStore.getItemAsync('token');
+            const response = await fetch(`https://sms-backend-desa-peliatan.vercel.app/api/biopori/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                const bioporiData = result.data;
+                setName(bioporiData.name);
+                setImageUri(bioporiData.image_url);
+                setPhoto(bioporiData.image_url);
+                setDate(new Date(bioporiData.date));
+                setTime(new Date(`1970-01-01T${bioporiData.time}`));
+                // Set end date/time jika ada di response
+            } else {
+                Alert.alert('Error', result.error || 'Gagal memuat data biopori');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            Alert.alert('Error', 'Tidak dapat terhubung ke server');
+        }
+    };
+
+    // Fungsi untuk memilih gambar
     const pickImage = async () => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted) {
@@ -35,11 +73,11 @@ const AddBioporiForm = () => {
                 setImageUri(uri);
             }
         } else {
-            alert("Permission untuk akses galeri tidak diberikan");
+            alert("Izin akses galeri tidak diberikan");
         }
     };
 
-    // Take a photo using the camera
+    // Fungsi untuk mengambil foto
     const takePhoto = async () => {
         const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
         if (permissionResult.granted) {
@@ -56,16 +94,15 @@ const AddBioporiForm = () => {
                 setImageUri(uri);
             }
         } else {
-            alert("Permission untuk akses kamera tidak diberikan");
+            alert("Izin akses kamera tidak diberikan");
         }
     };
 
-    // DateTimePicker handler
+    // Handler untuk date/time picker
     const handleDateChange = (event: any, selectedDate: Date | undefined) => {
         const currentDate = selectedDate || new Date();
         setDate(currentDate);
-        const calculatedEndDate = addDays(currentDate, 60);
-        setEndDate(calculatedEndDate);
+        setEndDate(addDays(currentDate, 60));
     };
 
     const handleTimeChange = (event: any, selectedTime: Date | undefined) => {
@@ -74,9 +111,10 @@ const AddBioporiForm = () => {
         setEndTime(currentTime);
     };
 
+    // Fungsi submit untuk tambah/edit
     const onSubmit = async () => {
-        if (!name || !photo || !date || !time || !endDate || !endTime) {
-            Alert.alert('Error', 'Please fill in all the fields.');
+        if (!name || !date || !time) {
+            Alert.alert('Error', 'Harap isi semua field yang wajib diisi');
             return;
         }
 
@@ -84,8 +122,14 @@ const AddBioporiForm = () => {
 
         try {
             const token = await SecureStore.getItemAsync('token');
-            const response = await fetch('https://sms-backend-desa-peliatan.vercel.app/api/biopori', {
-                method: 'POST',
+            const url = isEditMode 
+                ? `https://sms-backend-desa-peliatan.vercel.app/api/biopori/${id}`
+                : 'https://sms-backend-desa-peliatan.vercel.app/api/biopori';
+
+            const method = isEditMode ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
@@ -103,14 +147,14 @@ const AddBioporiForm = () => {
             const result = await response.json();
 
             if (response.ok) {
-                Alert.alert('Success', 'Biopori added successfully');
+                Alert.alert('Sukses', isEditMode ? 'Data biopori berhasil diperbarui' : 'Biopori berhasil ditambahkan');
                 router.push('/biopori');
             } else {
-                Alert.alert('Error', result.error || 'Something went wrong');
+                Alert.alert('Error', result.error || 'Terjadi kesalahan');
             }
         } catch (error) {
             console.error('Error:', error);
-            Alert.alert('Error', 'Unable to reach the server');
+            Alert.alert('Error', 'Tidak dapat terhubung ke server');
         } finally {
             setLoading(false);
         }
@@ -120,23 +164,22 @@ const AddBioporiForm = () => {
         <SafeAreaView className="flex-1 bg-gray-200">
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
                 <View className='p-6'>
-                    <Text className="text-3xl font-bold text-center mb-8 text-gray-800">Tambah Biopori</Text>
+                    <Text className="text-3xl font-bold text-center mb-8 text-gray-800">
+                        {isEditMode ? 'Edit Biopori' : 'Tambah Biopori'}
+                    </Text>
 
                     {/* Image Picker */}
                     <View className="items-center mb-6">
                         <View className="flex-row justify-center space-x-4">
-                            {/* Tombol Kamera */}
                             <TouchableOpacity onPress={takePhoto} className="p-4 bg-blue-500 rounded-full mx-2">
                                 <Ionicons name="camera" size={40} color="white" />
                             </TouchableOpacity>
 
-                            {/* Tombol Galeri */}
                             <TouchableOpacity onPress={pickImage} className="p-4 bg-green-500 rounded-full">
                                 <Ionicons name="image" size={40} color="white" />
                             </TouchableOpacity>
                         </View>
 
-                        {/* Tampilkan Gambar yang Dipilih */}
                         {photo && (
                             <Image source={{ uri: photo }} className="w-96 h-64 rounded-xl mt-4" />
                         )}
@@ -173,7 +216,7 @@ const AddBioporiForm = () => {
                         </View>
                     </View>
 
-                    {/* Start Time Picker */}
+                    {/* Time Picker */}
                     <Text className="text-lg text-gray-700 mb-2">Waktu Mulai Tanam:</Text>
                     <View className="rounded-xl mb-4 shadow-xl overflow-hidden">
                         {Platform.OS === 'ios' ? (
@@ -193,24 +236,30 @@ const AddBioporiForm = () => {
                         )}
                     </View>
 
-                    {/* End Date (Non-Editable) */}
-                    <Text className="text-lg text-gray-700 mb-2 mt-4">Tanggal Selesai Tanam :</Text>
+                    {/* End Date (Read-only) */}
+                    <Text className="text-lg text-gray-700 mb-2 mt-4">Tanggal Selesai Tanam:</Text>
                     <View className="w-full px-3 py-3 rounded-xl mb-4 text-lg bg-white">
                         <Text className="text-gray-500 text-lg">{format(endDate, 'yyyy-MM-dd')}</Text>
                     </View>
 
-                    {/* End Time (Non-Editable) */}
+                    {/* End Time (Read-only) */}
                     <Text className="text-lg text-gray-700 mb-2 mt-4">Waktu Selesai Tanam:</Text>
                     <View className="w-full px-3 py-3 rounded-xl mb-4 text-lg bg-white">
                         <Text className="text-gray-500 text-lg">{format(endTime, 'HH:mm')}</Text>
                     </View>
 
                     {/* Submit Button */}
-                    <TouchableOpacity onPress={onSubmit} className="bg-gradientEnd p-5 rounded-xl mt-8 shadow-md">
+                    <TouchableOpacity 
+                        onPress={onSubmit} 
+                        className="bg-gradientEnd p-5 rounded-xl mt-8 shadow-md"
+                        disabled={loading}
+                    >
                         {loading ? (
                             <ActivityIndicator size="small" color="#fff" />
                         ) : (
-                            <Text className="text-white font-bold text-center text-lg">Simpan</Text>
+                            <Text className="text-white font-bold text-center text-lg">
+                                {isEditMode ? 'Update' : 'Simpan'}
+                            </Text>
                         )}
                     </TouchableOpacity>
                 </View>
@@ -219,4 +268,4 @@ const AddBioporiForm = () => {
     );
 };
 
-export default AddBioporiForm;
+export default BioporiForm;
