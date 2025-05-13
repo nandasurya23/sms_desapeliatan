@@ -16,7 +16,7 @@ const getGreeting = () => {
 export default function Home() {
     const [username, setUsername] = useState("");
     const [userId, setUserId] = useState("");
-    const [error, setError] = useState("");  // New state for error handling
+    const [error, setError] = useState(""); 
     const router = useRouter();
 
     useEffect(() => {
@@ -25,7 +25,7 @@ export default function Home() {
                 const token = await SecureStore.getItemAsync("token");
 
                 if (!token) {
-                    router.replace("/auth/login"); // Paksa ke halaman login jika tidak ada token
+                    router.replace("/auth/login"); 
                     return;
                 }
 

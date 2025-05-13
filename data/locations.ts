@@ -34,4 +34,11 @@ export const locations = [
         image: require("../assets/images/heros.png"),
         rating: 4.7,
     },
+    {
+        id: "6",
+        name: "Bank Sampah F",
+        address: "Jl. Thamrin No. 338888",
+        image: require("../assets/images/heros.png"),
+        rating: 4.9,
+    },
 ];
