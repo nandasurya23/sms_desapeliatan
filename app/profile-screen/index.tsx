@@ -60,7 +60,7 @@ const ProfileScreen = () => {
 
         setProfile(result.data);
         setNewBanjar(result.data.banjar);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Fetch error:", error);
         const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan saat mengambil data";
         Alert.alert("Error", errorMessage);
@@ -87,7 +87,7 @@ const ProfileScreen = () => {
       quality: 1,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       setNewProfileImage(result.assets[0].uri);
     }
   };
@@ -112,7 +112,7 @@ const ProfileScreen = () => {
       if (newProfileImage) {
         const fileInfo = await FileSystem.getInfoAsync(newProfileImage);
         if (fileInfo.exists) {
-          const fileType = fileInfo.uri.split('.').pop();
+          const fileType = newProfileImage.split('.').pop() || 'jpg';
           formData.append('profile_picture', {
             uri: newProfileImage,
             name: `profile.${fileType}`,
@@ -137,13 +137,13 @@ const ProfileScreen = () => {
         setProfile(prev => ({
           ...prev,
           banjar: newBanjar,
-          profile_picture: result.data.profile_picture || prev.profile_picture
+          profile_picture: result.data?.profile_picture || prev.profile_picture
         }));
         setNewProfileImage(null);
       } else {
         throw new Error(result.error || "Gagal memperbarui profil");
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Save error:", error);
       const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan perubahan";
       Alert.alert("Error", errorMessage);
@@ -155,7 +155,7 @@ const ProfileScreen = () => {
   // Handle logout
   const handleLogout = async () => {
     const hasUnsavedChanges = newBanjar !== profile.banjar || newProfileImage !== null;
-    
+
     if (hasUnsavedChanges) {
       Alert.alert(
         "Perubahan Belum Disimpan",
@@ -208,9 +208,8 @@ const ProfileScreen = () => {
           <TouchableOpacity
             onPress={handleSave}
             disabled={isSaving}
-            className={`mx-4 mt-4 p-3 rounded-lg flex-row justify-center items-center ${
-              isSaving ? 'bg-emerald-300' : 'bg-emerald-500'
-            }`}
+            className={`mx-4 mt-4 p-3 rounded-lg flex-row justify-center items-center ${isSaving ? 'bg-emerald-300' : 'bg-emerald-500'
+              }`}
           >
             {isSaving ? (
               <ActivityIndicator color="white" className="mr-2" />
