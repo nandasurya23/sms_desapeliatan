@@ -7,16 +7,19 @@
     "icon": "./assets/images/icons.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "jsEngine": "hermes",
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nandasurya.sms"
+      "bundleIdentifier": "com.nandasurya.sms",
+      "newArchEnabled": false
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icons.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.nandasurya.sms"
     },
     "web": {
       "bundler": "metro",
