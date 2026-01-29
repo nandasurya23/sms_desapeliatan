@@ -41,22 +41,22 @@ export default function BottomNavbar() {
         <Text className={getTabStyle("/biopori").textColor}>Biopori</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/bank-sampah")} className="items-center">
+      <TouchableOpacity onPress={() => router.push("/bank")} className="items-center">
         <Ionicons
           name="leaf-outline"
           size={24}
-          color={getTabStyle("/bank-sampah").iconColor}
+          color={getTabStyle("/bank").iconColor}
         />
-        <Text className={getTabStyle("/bank-sampah").textColor}>Bank Sampah</Text>
+        <Text className={getTabStyle("/bank").textColor}>Bank Sampah</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/edukasi")} className="items-center">
+      <TouchableOpacity onPress={() => router.push("/education")} className="items-center">
         <Ionicons
           name="book-outline"
           size={24}
-          color={getTabStyle("/edukasi").iconColor}
+          color={getTabStyle("/education").iconColor}
         />
-        <Text className={getTabStyle("/edukasi").textColor}>Edukasi</Text>
+        <Text className={getTabStyle("/education").textColor}>Edukasi</Text>
       </TouchableOpacity>
     </View>
   );

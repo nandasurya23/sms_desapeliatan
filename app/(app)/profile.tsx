@@ -40,7 +40,7 @@ const ProfileScreen = () => {
         const token = await SecureStore.getItemAsync("token");
         if (!token) {
           Alert.alert("Error", "Anda belum login.");
-          router.push("/auth/login");
+          router.push("/(auth)/login");
           return;
         }
 
@@ -72,7 +72,6 @@ const ProfileScreen = () => {
     fetchProfile();
   }, []);
 
-  // Handle image picking
   const handleImagePick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -92,14 +91,13 @@ const ProfileScreen = () => {
     }
   };
 
-  // Handle save changes
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const token = await SecureStore.getItemAsync("token");
       if (!token) {
         Alert.alert("Error", "Sesi telah berakhir, silakan login kembali");
-        router.push("/auth/login");
+        router.push("/(auth)/login");
         return;
       }
 
@@ -152,7 +150,6 @@ const ProfileScreen = () => {
     }
   };
 
-  // Handle logout
   const handleLogout = async () => {
     const hasUnsavedChanges = newBanjar !== profile.banjar || newProfileImage !== null;
 
@@ -166,14 +163,14 @@ const ProfileScreen = () => {
             text: "Keluar",
             onPress: async () => {
               await SecureStore.deleteItemAsync("token");
-              router.push("/auth/login");
+              router.push("/(auth)/login");
             },
           },
         ]
       );
     } else {
       await SecureStore.deleteItemAsync("token");
-      router.push("/auth/login");
+      router.push("/(auth)/login");
     }
   };
 

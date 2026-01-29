@@ -25,7 +25,7 @@ export default function Home() {
                 const token = await SecureStore.getItemAsync("token");
 
                 if (!token) {
-                    router.replace("/auth/login"); 
+                    router.replace("/(auth)/login"); 
                     return;
                 }
 
@@ -71,7 +71,7 @@ export default function Home() {
                         </Text>
                         <Text className="text-gray-500 text-sm">Semoga harimu menyenangkan 😊</Text>
                     </View>
-                    <TouchableOpacity onPress={() => router.push("/profile-screen")}>
+                    <TouchableOpacity onPress={() => router.push("/profile")}>
                         <Ionicons name="settings-outline" size={24} color="#3DA656" />
                     </TouchableOpacity>
                 </View>
@@ -86,7 +86,7 @@ export default function Home() {
                 {/* Konten */}
                 <View className="px-4 mt-4">
                     <Image
-                        source={require("../assets/images/heros.png")}
+                        source={require("../../assets/images/heros.png")}
                         className="w-full h-40 rounded-xl mb-7"
                         resizeMode="cover"
                     />
@@ -126,7 +126,7 @@ export default function Home() {
                     </View>
                     <View className="bg-white rounded-xl shadow-md p-4 w-full">
                         <Image
-                            source={require("../assets/images/edukasi.png")}
+                            source={require("../../assets/images/edukasi.png")}
                             className="w-full h-44 rounded-xl mb-5"
                             resizeMode="cover"
                         />

@@ -21,7 +21,6 @@ const BioporiForm = () => {
 
     const router = useRouter();
 
-    // Load data for edit
     useEffect(() => {
         if (id) {
             loadBioporiData();
@@ -47,7 +46,6 @@ const BioporiForm = () => {
                 setPhoto(bioporiData.image_url);
                 setDate(new Date(bioporiData.date));
                 setTime(new Date(`1970-01-01T${bioporiData.time}`));
-                // Set end date/time jika ada di response
             } else {
                 Alert.alert('Error', result.error || 'Gagal memuat data biopori');
             }
@@ -57,7 +55,6 @@ const BioporiForm = () => {
         }
     };
 
-    // Fungsi untuk memilih gambar
     const pickImage = async () => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted) {
@@ -77,7 +74,6 @@ const BioporiForm = () => {
         }
     };
 
-    // Fungsi untuk mengambil foto
     const takePhoto = async () => {
         const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
         if (permissionResult.granted) {
@@ -98,7 +94,6 @@ const BioporiForm = () => {
         }
     };
 
-    // Handler untuk date/time picker
     const handleDateChange = (event: any, selectedDate: Date | undefined) => {
         const currentDate = selectedDate || new Date();
         setDate(currentDate);
@@ -111,7 +106,6 @@ const BioporiForm = () => {
         setEndTime(currentTime);
     };
 
-    // Fungsi submit untuk tambah/edit
     const onSubmit = async () => {
         if (!name || !date || !time) {
             Alert.alert('Error', 'Harap isi semua field yang wajib diisi');

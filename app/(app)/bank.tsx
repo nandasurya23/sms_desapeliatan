@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { Modal, Portal, Menu, Provider } from "react-native-paper";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { locations } from "@/data/locations";
-import { useRouter } from "expo-router";
 
 interface Location {
   id: string;
@@ -39,7 +38,7 @@ const BankSampah = () => {
 
   const pickImages = async (useCamera: boolean) => {
     const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Fixed: Using MediaTypeOptions
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
       allowsMultipleSelection: true,
       quality: 1,
     };
