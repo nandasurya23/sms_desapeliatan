@@ -1,0 +1,1 @@
+export const API_URL = "https://sms-backend-desa-peliatan.vercel.app/api";

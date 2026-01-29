@@ -1,75 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { SafeAreaView, View, ActivityIndicator, Alert, Text } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { useRouter } from 'expo-router';
-import { Slot } from 'expo-router';
-import { EventEmitter } from 'expo-modules-core';
-import BottomNavbar from '@/components/BottomNavbar'; 
+import { Slot, useRouter, useSegments } from "expo-router";
+import { useEffect, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import '../global.css'
 
-const eventEmitter = new EventEmitter<{ logout: () => void }>();
 
-
-const _layout = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isReady, setIsReady] = useState(false);  // State for layout readiness
+export default function RootLayout() {
   const router = useRouter();
+  const segments = useSegments();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    console.error("Cek error: Jika ada string yang tidak dibungkus <Text>, error akan muncul di sini.");
-    const checkLoginStatus = async () => {
-        try {
-            const userId = await SecureStore.getItemAsync('userId');
-            if (userId) {
-                setIsLoggedIn(true);
-            } else {
-                // Redirect to login screen if no user is logged in
-                router.replace('/auth/login');
-            }
-        } catch (error) {
-            console.error('Error during login check:', error);
-            Alert.alert("Error", "Terjadi kesalahan saat memeriksa status login.");
-        } finally {
-            setIsReady(true);  // Set layout as ready to render
-        }
+    const checkAuth = async () => {
+      const token = await SecureStore.getItemAsync("token");
+
+      const inAuthGroup = segments[0] === "(auth)";
+
+      if (!token && !inAuthGroup) {
+        router.replace("/(auth)/login");
+      }
+
+      if (token && inAuthGroup) {
+        router.replace("/(app)");
+      }
+
+      setReady(true);
     };
 
-    checkLoginStatus();
-    const logoutListener = eventEmitter.addListener("logout", () => {
-      setIsLoggedIn(false);
-    });
-  
-    return () => {
-      logoutListener.remove(); // Hapus listener saat unmount
-    };
-}, [router]);
+    checkAuth();
+  }, [segments]);
 
-
-  if (!isReady) {
+  if (!ready) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="#3DA656" />
-      </SafeAreaView>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
     );
   }
 
-  return (
-    <SafeAreaView className="flex-1">
-<View className="flex-1">
-  {(() => {
-    try {
-      console.log("Slot sedang merender halaman ini:", <Slot />);
-      return <Slot />;
-    } catch (error) {
-      console.error("Error terjadi di Slot:", error);
-      return <Text>Error di Slot</Text>;
-    }
-  })()}
-</View>
-
-      {isLoggedIn && <BottomNavbar />} {/* Render BottomNavbar only if logged in */}
-    </SafeAreaView>
-  );
-};
-
-export default _layout;
+  return <Slot />;
+}
