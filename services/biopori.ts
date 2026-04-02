@@ -6,12 +6,28 @@ export interface Biopori {
   name: string;
   date: string;
   time: string;
-  end_date: string;
-  end_time: string;
-  image_url: string;
+  end_date?: string;
+  end_time?: string;
+  image_url?: string;
+  isfull: boolean;
+  ispanen: boolean;
   isFull: boolean;
   isHarvested: boolean;
 }
+
+const mapBioporiItem = (item: any): Biopori => ({
+  id: String(item.id),
+  name: item.name || "",
+  date: item.date || "",
+  time: item.time || "",
+  end_date: item.end_date || item.endDate || "",
+  end_time: item.end_time || item.endTime || "",
+  image_url: item.image_url || "",
+  isfull: Boolean(item.isfull),
+  ispanen: Boolean(item.ispanen),
+  isFull: Boolean(item.isfull),
+  isHarvested: Boolean(item.ispanen),
+});
 
 export async function getBiopori(): Promise<Biopori[] | string> {
   try {
@@ -26,7 +42,8 @@ export async function getBiopori(): Promise<Biopori[] | string> {
     const data = await res.json();
     if (!res.ok) return data.error || "Gagal mengambil data biopori";
 
-    return data.data;
+    const items = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+    return items.map(mapBioporiItem);
   } catch (err) {
     console.error(err);
     return "Terjadi kesalahan jaringan";

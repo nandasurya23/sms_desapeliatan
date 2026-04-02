@@ -8,6 +8,19 @@ interface LoginResponse {
   error?: string;
 }
 
+interface ProfileResponse {
+  data?: {
+    id?: string | number;
+    username?: string;
+    phone_number?: string | null;
+    email?: string | null;
+    banjar?: string | null;
+    profile_picture?: string | null;
+    biopori_count?: number;
+  };
+  error?: string;
+}
+
 interface RegisterData {
   username: string;
   phone_number: string;
@@ -62,13 +75,13 @@ export async function register(user: RegisterData): Promise<RegisterResponse> {
   }
 }
 
-// ===== GET USER DATA =====
-export async function getUserData(): Promise<LoginResponse> {
+// ===== GET PROFILE =====
+export async function getUserData(): Promise<ProfileResponse> {
   try {
     const token = await SecureStore.getItemAsync("token");
-    if (!token) return { token: "", error: "No token found" };
+    if (!token) return { error: "No token found" };
 
-    const response = await fetch(`${API_URL}/user-data`, {
+    const response = await fetch(`${API_URL}/profile`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -78,10 +91,10 @@ export async function getUserData(): Promise<LoginResponse> {
 
     const data = await response.json();
 
-    if (!response.ok) return { token: "", error: data.error || "Failed to fetch user data" };
+    if (!response.ok) return { error: data.error || "Failed to fetch profile" };
 
     return data;
   } catch (err) {
-    return { token: "", error: "Network error" };
+    return { error: "Network error" };
   }
 }

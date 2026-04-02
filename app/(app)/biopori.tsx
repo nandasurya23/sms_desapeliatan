@@ -9,11 +9,12 @@ import {
   Alert,
   RefreshControl,
   Animated,
+  ScrollView,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { ScrollView } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { format } from "date-fns";
+import { BACKEND_BASE_URL } from "@/config";
 
 import { Biopori as BioporiType, getBiopori, markFull, markHarvested } from "@/services/biopori";
 
@@ -29,6 +30,18 @@ export default function Biopori() {
   const [disabledButtons, setDisabledButtons] = useState<Record<string, boolean>>({});
 
   const router = useRouter();
+  const resolveBackendAssetUrl = (path?: string | null) => {
+    if (!path) return null;
+    if (
+      path.startsWith("http://") ||
+      path.startsWith("https://") ||
+      path.startsWith("file://") ||
+      path.startsWith("content://")
+    ) {
+      return path;
+    }
+    return `${BACKEND_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  };
 
   const fetchData = async () => {
     setRefreshing(true);
@@ -148,7 +161,13 @@ export default function Biopori() {
           ) : (
             filteredData.map((b) => (
               <View key={b.id} className="bg-white border border-gray-200 rounded-xl shadow-md p-4 mb-4">
-                {b.image_url && <Image source={{ uri: b.image_url }} className="w-full h-52 rounded-xl" resizeMode="cover" />}
+                {b.image_url && (
+                  <Image
+                    source={{ uri: resolveBackendAssetUrl(b.image_url) || b.image_url }}
+                    className="w-full h-52 rounded-xl"
+                    resizeMode="cover"
+                  />
+                )}
 
                 {/* Header dengan badge counter */}
                 <View className="flex-row justify-between my-4 items-center">

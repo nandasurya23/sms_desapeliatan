@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,11 @@ import {
 import { Modal, Portal, Menu, Provider } from "react-native-paper";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
+import { API_URL } from "@/config";
 import { locations } from "@/data/locations";
+import { addStoredBankSampahTotalWeight, getBankSampahTotalWeight } from "../../services/bankSampah";
+import { useFocusEffect } from "expo-router";
 
 interface Location {
   id: string;
@@ -32,13 +36,33 @@ const BankSampah = () => {
   const [beratSampah, setBeratSampah] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [totalPenjualan, setTotalPenjualan] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      const loadTotal = async () => {
+        const total = await getBankSampahTotalWeight();
+        if (active) {
+          setTotalPenjualan(total);
+        }
+      };
+
+      loadTotal();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const openMenu = () => setMenuVisible(true);
   const closeMenu = () => setMenuVisible(false);
 
   const pickImages = async (useCamera: boolean) => {
     const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      mediaTypes: ["images"], 
       allowsMultipleSelection: true,
       quality: 1,
     };
@@ -66,36 +90,105 @@ const BankSampah = () => {
     setSelectedImages((prevImages) => prevImages.filter((image) => image !== uri));
   };
 
-  const handleSell = () => {
-    if (!alamat || !beratSampah || jenisSampah === "Pilih Jenis Sampah") {
+  const normalizeWeight = (value: string) => {
+    const cleaned = value
+      .trim()
+      .toLowerCase()
+      .replace(/kg/g, "")
+      .replace(/\s+/g, "")
+      .replace(",", ".");
+
+    return cleaned;
+  };
+
+  const buildBankSampahPayload = () => {
+    const normalizedWeight = normalizeWeight(beratSampah);
+    return {
+      address: alamat.trim(),
+      weight: Number(normalizedWeight).toString(),
+      category: jenisSampah,
+      // images sengaja tidak dipaksa dikirim dulu supaya sesuai kontrak final
+      // dan menghindari body multipart yang tidak terbaca backend.
+    };
+  };
+
+  const submitToBackend = async () => {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      throw new Error("Sesi telah berakhir, silakan login kembali");
+    }
+
+    const response = await fetch(`${API_URL}/add-bank-sampah`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(buildBankSampahPayload()),
+    });
+
+    let result: any = null;
+    try {
+      result = await response.json();
+    } catch {
+      try {
+        const text = await response.text();
+        result = text ? { error: text } : null;
+      } catch {
+        result = null;
+      }
+    }
+
+    if (!response.ok) {
+      const err = new Error(result?.error || "Gagal menyimpan bank sampah");
+      (err as Error & { status?: number }).status = response.status;
+      throw err;
+    }
+  };
+
+  const handleSell = async () => {
+    if (isSubmitting) return;
+
+    const normalizedWeight = normalizeWeight(beratSampah);
+
+    if (!alamat || !normalizedWeight || jenisSampah === "Pilih Jenis Sampah") {
       Alert.alert("Error", "Harap lengkapi semua data sebelum menjual!");
       return;
     }
 
-    if (selectedImages.length === 0) {
-      Alert.alert("Error", "Harap tambahkan foto sampah!");
+    if (Number.isNaN(Number(normalizedWeight)) || Number(normalizedWeight) <= 0) {
+      Alert.alert("Error", "Berat sampah harus berupa angka valid");
       return;
     }
 
-    Alert.alert(
-      "Konfirmasi Penjualan",
-      `Apakah Anda yakin ingin menjual ${beratSampah}Kg sampah ${jenisSampah}?`,
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Ya",
-          onPress: () => {
-            setTotalPenjualan((prevTotal) => prevTotal + parseFloat(beratSampah));
-            resetForm();
+    Alert.alert("Konfirmasi Penjualan", `Apakah Anda yakin ingin menjual ${beratSampah}Kg sampah ${jenisSampah}?`, [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Ya",
+        onPress: async () => {
+          if (isSubmitting) return;
+          setIsSubmitting(true);
+
+          try {
+            await submitToBackend();
+            const nextTotal = await addStoredBankSampahTotalWeight(Number(normalizedWeight));
+            setTotalPenjualan(nextTotal);
             const message = `Halo, saya ingin menjual sampah:\n\n• Jenis: ${jenisSampah}\n• Berat: ${beratSampah} kg\n• Alamat: ${alamat}\n\nTerima kasih.`;
+            resetForm();
             const waUrl = `https://wa.me/6281339684249?text=${encodeURIComponent(message)}`;
             Linking.openURL(waUrl).catch((err) =>
               console.error("Gagal membuka WhatsApp:", err)
             );
-          },
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Gagal menyimpan data bank sampah";
+            console.error("Bank sampah submit failed:", error);
+            Alert.alert("Error", message);
+          } finally {
+            setIsSubmitting(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const resetForm = () => {
@@ -114,7 +207,7 @@ const BankSampah = () => {
           <View className="flex-row items-center justify-between">
             <Ionicons name="leaf" size={24} color="#10b981" />
             <View className="items-center">
-              <Text className="text-gray-500 font-medium">Total Penjualan</Text>
+              <Text className="text-gray-500 font-medium">Total Berat Terkumpul</Text>
               <Text className="text-gray-800 text-xl font-bold mt-1">
                 {totalPenjualan} kg
               </Text>
@@ -398,10 +491,11 @@ const BankSampah = () => {
                   {/* Tombol Submit */}
                   <TouchableOpacity
                     onPress={handleSell}
-                    className="bg-emerald-500 rounded-lg py-3 items-center justify-center mt-2"
+                    className={`bg-emerald-500 rounded-lg py-3 items-center justify-center mt-2 ${isSubmitting ? "opacity-50" : ""}`}
                     activeOpacity={0.8}
+                    disabled={isSubmitting}
                   >
-                    <Text className="text-white font-bold">Konfirmasi Penjualan</Text>
+                    <Text className="text-white font-bold">{isSubmitting ? "Menyimpan..." : "Konfirmasi Penjualan"}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
