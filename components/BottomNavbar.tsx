@@ -1,7 +1,6 @@
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import { View, Text, TouchableOpacity } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { usePathname } from "expo-router";
 
 export default function BottomNavbar() {
   const pathname = usePathname(); // Get the current path

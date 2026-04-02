@@ -26,7 +26,7 @@ export default function RootLayout() {
     };
 
     checkAuth();
-  }, [segments]);
+  }, [segments, router]);
 
   if (checkingAuth) {
     return (

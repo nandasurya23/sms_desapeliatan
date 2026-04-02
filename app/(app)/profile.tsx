@@ -1,20 +1,49 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator, TextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { useRouter } from "expo-router";
-import { Menu, Provider as PaperProvider } from "react-native-paper";
-import * as FileSystem from 'expo-file-system';
+import { Provider as PaperProvider } from "react-native-paper";
+import { API_URL, BACKEND_BASE_URL } from "@/config";
 
 interface ProfileData {
   username: string;
   phone_number: string;
   email: string;
-  banjar: string;
+  banjar: string | null;
   profile_picture: string | null;
   biopori_count: number;
 }
+
+interface SelectedProfileImage {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+const resolveBackendAssetUrl = (path?: string | null) => {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${BACKEND_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+};
+
+const getMimeTypeFromFileName = (fileName: string) => {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "heic":
+      return "image/heic";
+    default:
+      return "application/octet-stream";
+  }
+};
 
 const ProfileScreen = () => {
   const router = useRouter();
@@ -22,13 +51,12 @@ const ProfileScreen = () => {
     username: "",
     phone_number: "",
     email: "",
-    banjar: "",
+    banjar: null,
     profile_picture: null,
     biopori_count: 0
   });
   const [newBanjar, setNewBanjar] = useState("");
-  const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [newProfileImage, setNewProfileImage] = useState<SelectedProfileImage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -44,7 +72,7 @@ const ProfileScreen = () => {
           return;
         }
 
-        const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/profile", {
+        const response = await fetch(`${API_URL}/profile`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -58,8 +86,9 @@ const ProfileScreen = () => {
           throw new Error(result.error || "Gagal mengambil data profil");
         }
 
-        setProfile(result.data);
-        setNewBanjar(result.data.banjar);
+        const profileData = result.data || result;
+        setProfile(profileData);
+        setNewBanjar(profileData.banjar || "");
       } catch (error: unknown) {
         console.error("Fetch error:", error);
         const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan saat mengambil data";
@@ -70,7 +99,7 @@ const ProfileScreen = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [router]);
 
   const handleImagePick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -80,20 +109,37 @@ const ProfileScreen = () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setNewProfileImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      const fileName = asset.fileName || asset.uri.split("/").pop() || "profile.jpg";
+      const fileType = asset.mimeType || getMimeTypeFromFileName(fileName);
+      setNewProfileImage({
+        uri: asset.uri,
+        name: fileName,
+        type: fileType,
+      });
     }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const trimmedBanjar = (newBanjar || "").trim();
+      const currentBanjar = (profile.banjar || "").trim();
+      const hasBanjarChange = trimmedBanjar.length > 0 && trimmedBanjar !== currentBanjar;
+      const hasImageChange = !!newProfileImage;
+
+      if (!hasBanjarChange && !hasImageChange) {
+        Alert.alert("Info", "Tidak ada perubahan untuk disimpan");
+        return;
+      }
+
       const token = await SecureStore.getItemAsync("token");
       if (!token) {
         Alert.alert("Error", "Sesi telah berakhir, silakan login kembali");
@@ -101,45 +147,101 @@ const ProfileScreen = () => {
         return;
       }
 
-      const formData = new FormData();
+      console.log("[profile] save request", {
+        hasBanjarChange,
+        hasImageChange,
+        trimmedBanjar,
+        currentBanjar,
+        profilePicturePath: profile.profile_picture,
+        imageMeta: newProfileImage,
+      });
 
-      if (newBanjar !== profile.banjar) {
-        formData.append('banjar', newBanjar);
+      const submitProfileUpdate = async (
+        fields: { banjar?: string; profile_picture?: SelectedProfileImage },
+        options?: { allowFailure?: boolean }
+      ) => {
+        const formData = new FormData();
+        if (typeof fields.banjar === "string" && fields.banjar.length > 0) {
+          formData.append("banjar", fields.banjar);
+        }
+        if (fields.profile_picture) {
+          formData.append("profile_picture", {
+            uri: fields.profile_picture.uri,
+            name: fields.profile_picture.name,
+            type: fields.profile_picture.type || getMimeTypeFromFileName(fields.profile_picture.name),
+          } as any);
+        }
+
+        const response = await fetch(`${API_URL}/profile`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        const rawResponse = await response.text();
+        let result: { data?: ProfileData; error?: string } = {};
+        if (rawResponse) {
+          try {
+            result = JSON.parse(rawResponse);
+          } catch {
+            result = { error: rawResponse };
+          }
+        }
+
+        console.log("[profile] save response", {
+          status: response.status,
+          ok: response.ok,
+          rawResponse,
+          parsedError: result.error,
+          sentFields: Object.keys(fields),
+        });
+
+        if (!response.ok) {
+          if (options?.allowFailure) {
+            return null;
+          }
+          throw new Error(result.error || "Gagal memperbarui profil");
+        }
+
+        return result.data;
+      };
+
+      let latestProfileData: ProfileData | null | undefined;
+      if (hasBanjarChange) {
+        latestProfileData = await submitProfileUpdate({
+          banjar: trimmedBanjar,
+        });
       }
 
-      if (newProfileImage) {
-        const fileInfo = await FileSystem.getInfoAsync(newProfileImage);
-        if (fileInfo.exists) {
-          const fileType = newProfileImage.split('.').pop() || 'jpg';
-          formData.append('profile_picture', {
-            uri: newProfileImage,
-            name: `profile.${fileType}`,
-            type: `image/${fileType}`,
-          } as any);
+      if (hasImageChange && newProfileImage) {
+        const photoResult = await submitProfileUpdate(
+          {
+            banjar: hasBanjarChange ? trimmedBanjar : undefined,
+            profile_picture: newProfileImage,
+          },
+          { allowFailure: true }
+        );
+
+        if (photoResult?.profile_picture) {
+          latestProfileData = photoResult;
+        } else if (!hasBanjarChange) {
+          Alert.alert(
+            "Peringatan",
+            "Banjar tidak berubah, tetapi upload foto profil masih gagal di backend. Perubahan foto belum tersimpan."
+          );
         }
       }
 
-      const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/profile", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Sukses", "Profil berhasil diperbarui");
-        setProfile(prev => ({
-          ...prev,
-          banjar: newBanjar,
-          profile_picture: result.data?.profile_picture || prev.profile_picture
-        }));
+      Alert.alert("Sukses", "Profil berhasil diperbarui");
+      setProfile(prev => ({
+        ...prev,
+        banjar: hasBanjarChange ? trimmedBanjar : prev.banjar,
+        profile_picture: latestProfileData?.profile_picture || prev.profile_picture,
+      }));
+      if (!hasImageChange || latestProfileData?.profile_picture) {
         setNewProfileImage(null);
-      } else {
-        throw new Error(result.error || "Gagal memperbarui profil");
       }
     } catch (error: unknown) {
       console.error("Save error:", error);
@@ -151,7 +253,7 @@ const ProfileScreen = () => {
   };
 
   const handleLogout = async () => {
-    const hasUnsavedChanges = newBanjar !== profile.banjar || newProfileImage !== null;
+    const hasUnsavedChanges = (newBanjar || "").trim() !== (profile.banjar || "").trim() || newProfileImage !== null;
 
     if (hasUnsavedChanges) {
       Alert.alert(
@@ -174,7 +276,7 @@ const ProfileScreen = () => {
     }
   };
 
-  const hasChanges = newBanjar !== profile.banjar || newProfileImage !== null;
+  const hasChanges = (newBanjar || "").trim() !== (profile.banjar || "").trim() || newProfileImage !== null;
 
   return (
     <PaperProvider>
@@ -184,7 +286,7 @@ const ProfileScreen = () => {
           <TouchableOpacity onPress={handleImagePick} className="relative">
             <Image
               source={{
-                uri: newProfileImage || profile.profile_picture || "https://www.gravatar.com/avatar/default?s=200",
+                uri: newProfileImage?.uri || resolveBackendAssetUrl(profile.profile_picture) || "https://www.gravatar.com/avatar/default?s=200",
               }}
               className="w-32 h-32 rounded-full border-4 border-emerald-100"
             />
@@ -263,55 +365,16 @@ const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* Banjar Selection */}
+        {/* Banjar Input */}
         <View className="mt-4 mx-4 bg-white rounded-xl p-6 shadow-sm">
           <Text className="text-sm font-medium text-gray-500">Banjar</Text>
-          <Menu
-            visible={visible}
-            onDismiss={() => setVisible(false)}
-            anchor={
-              <TouchableOpacity
-                onPress={() => setVisible(true)}
-                className="mt-3 flex-row items-center justify-between bg-gray-50 rounded-lg px-4 py-3 border border-gray-200"
-                activeOpacity={0.8}
-              >
-                <Text className={newBanjar ? "text-gray-700" : "text-gray-400"}>
-                  {newBanjar || "Pilih Banjar"}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#9ca3af" />
-              </TouchableOpacity>
-            }
-            contentStyle={{
-              backgroundColor: 'white',
-              borderRadius: 8,
-              marginTop: 8,
-            }}
-          >
-            <Menu.Item
-              onPress={() => {
-                setNewBanjar("Banjar A");
-                setVisible(false);
-              }}
-              title="Banjar A"
-              titleStyle={{ color: "#1f2937", fontSize: 14 }}
-            />
-            <Menu.Item
-              onPress={() => {
-                setNewBanjar("Banjar B");
-                setVisible(false);
-              }}
-              title="Banjar B"
-              titleStyle={{ color: "#1f2937", fontSize: 14 }}
-            />
-            <Menu.Item
-              onPress={() => {
-                setNewBanjar("Banjar C");
-                setVisible(false);
-              }}
-              title="Banjar C"
-              titleStyle={{ color: "#1f2937", fontSize: 14 }}
-            />
-          </Menu>
+          <TextInput
+            value={newBanjar}
+            onChangeText={setNewBanjar}
+            placeholder="Masukkan banjar"
+            placeholderTextColor="#9ca3af"
+            className="mt-3 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200 text-gray-700"
+          />
         </View>
 
         {/* Logout Button */}

@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image, ScrollView } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as SecureStore from "expo-secure-store";
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { locations } from "@/data/locations";
+import { getUserData } from "@/services/auth";
+import { getBankSampahTotalWeight } from "@/services/bankSampah";
 
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -15,7 +17,7 @@ const getGreeting = () => {
 
 export default function Home() {
     const [username, setUsername] = useState("");
-    const [userId, setUserId] = useState("");
+    const [totalTransaksi, setTotalTransaksi] = useState(0);
     const [error, setError] = useState(""); 
     const router = useRouter();
 
@@ -29,35 +31,44 @@ export default function Home() {
                     return;
                 }
 
-                const response = await fetch("https://sms-backend-desa-peliatan.vercel.app/api/user-data", {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                    },
-                });
+                const data = await getUserData();
+                if (data.error) {
+                    setError(data.error);
+                    return;
+                }
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    if (data && data.id !== undefined) {
-                        setUserId(data.id);
-                        setUsername(data.username);
-                        await SecureStore.setItemAsync("userId", data.id.toString());
-                    } else {
-                        console.error("User ID not found in response data:", data);
-                        setError("Data pengguna tidak lengkap. ID tidak ditemukan.");
-                    }
+                if (data.data?.username) {
+                    setUsername(data.data.username);
                 } else {
-                    setError("Gagal mengambil data pengguna");
+                    setError("Data profil tidak lengkap");
                 }
             } catch (error) {
-                setError("Terjadi kesalahan saat mengambil data pengguna");
+                const message = error instanceof Error ? error.message : "Terjadi kesalahan saat mengambil data pengguna";
+                setError(message);
             }
         };
 
         fetchUserData();
-    }, []);
+    }, [router]);
+
+    useFocusEffect(
+        useCallback(() => {
+            let active = true;
+
+            const loadTotal = async () => {
+                const total = await getBankSampahTotalWeight();
+                if (active) {
+                    setTotalTransaksi(total);
+                }
+            };
+
+            loadTotal();
+
+            return () => {
+                active = false;
+            };
+        }, [])
+    );
 
 
     return (
@@ -91,7 +102,7 @@ export default function Home() {
                         resizeMode="cover"
                     />
                     <View className="bg-gradientStart p-5 rounded-xl mb-4">
-                        <Text className="text-white text-xl font-bold">Total Transaksi: 50kg</Text>
+                        <Text className="text-white text-xl font-bold">Total Transaksi: {totalTransaksi}kg</Text>
                     </View>
                     <View className="flex-row items-center justify-between mb-5">
                         <Text className="text-lg font-bold">Lokasi Daur Ulang Terdekat</Text>
