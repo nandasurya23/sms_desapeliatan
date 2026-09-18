@@ -6,6 +6,7 @@ import * as SecureStore from "expo-secure-store";
 import { useRouter } from "expo-router";
 import { Provider as PaperProvider } from "react-native-paper";
 import { API_URL, BACKEND_BASE_URL } from "@/config";
+import { resolveBackendAssetUrl } from '@/utils/image';
 
 interface ProfileData {
   username: string;
@@ -20,13 +21,9 @@ interface SelectedProfileImage {
   uri: string;
   name: string;
   type: string;
+  base64?: string;
 }
 
-const resolveBackendAssetUrl = (path?: string | null) => {
-  if (!path) return null;
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  return `${BACKEND_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-};
 
 const getMimeTypeFromFileName = (fileName: string) => {
   const ext = fileName.split(".").pop()?.toLowerCase();
@@ -112,7 +109,8 @@ const ProfileScreen = () => {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1,
+      quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -123,6 +121,7 @@ const ProfileScreen = () => {
         uri: asset.uri,
         name: fileName,
         type: fileType,
+        base64: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined,
       });
     }
   };
@@ -160,24 +159,21 @@ const ProfileScreen = () => {
         fields: { banjar?: string; profile_picture?: SelectedProfileImage },
         options?: { allowFailure?: boolean }
       ) => {
-        const formData = new FormData();
+        const payload: Record<string, any> = {};
         if (typeof fields.banjar === "string" && fields.banjar.length > 0) {
-          formData.append("banjar", fields.banjar);
+          payload.banjar = fields.banjar;
         }
-        if (fields.profile_picture) {
-          formData.append("profile_picture", {
-            uri: fields.profile_picture.uri,
-            name: fields.profile_picture.name,
-            type: fields.profile_picture.type || getMimeTypeFromFileName(fields.profile_picture.name),
-          } as any);
+        if (fields.profile_picture && fields.profile_picture.base64) {
+          payload.profile_picture = fields.profile_picture.base64;
         }
 
         const response = await fetch(`${API_URL}/profile`, {
           method: "PUT",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: formData,
+          body: JSON.stringify(payload),
         });
 
         const rawResponse = await response.text();

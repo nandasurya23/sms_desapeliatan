@@ -16,12 +16,6 @@ type JwtPayload = {
 };
 
 const TOTAL_WEIGHT_KEY_PREFIX = "bank_sampah_total_weight";
-const BANK_SAMPAH_LIST_ENDPOINTS = [
-  "/bank-sampah",
-  "/add-bank-sampah",
-  "/bank-sampah/me",
-  "/add-bank-sampah/me",
-];
 
 const readJson = async (response: Response) => {
   try {
@@ -93,18 +87,16 @@ export async function getBankSampahTotalWeight(): Promise<number> {
   const token = await SecureStore.getItemAsync("token");
   if (!token) return await getStoredBankSampahTotalWeight();
 
-  for (const endpoint of BANK_SAMPAH_LIST_ENDPOINTS) {
-    try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+  try {
+    const response = await fetch(`${API_URL}/bank-sampah`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) continue;
-
+    if (response.ok) {
       const data = await readJson(response);
       const items = extractItems(data);
 
@@ -113,9 +105,9 @@ export async function getBankSampahTotalWeight(): Promise<number> {
         await setStoredBankSampahTotalWeight(total);
         return total;
       }
-    } catch {
-      continue;
     }
+  } catch {
+    // Fallback to stored value
   }
 
   return await getStoredBankSampahTotalWeight();

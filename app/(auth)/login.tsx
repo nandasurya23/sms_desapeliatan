@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-  ImageBackground,
   ActivityIndicator,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -39,12 +38,7 @@ export default function Login() {
   };
 
   return (
-    <ImageBackground
-      source={{
-        uri: "https://res.cloudinary.com/df82hir2r/image/upload/v1737544254/auth_b7ki8e.jpg",
-      }}
-      className="flex-1 justify-center items-center"
-    >
+    <View className="flex-1 justify-center items-center bg-emerald-600">
       {/* overlay gelap */}
       <View className="absolute top-0 left-0 right-0 bottom-0 bg-black opacity-50" />
 
@@ -112,6 +106,6 @@ export default function Login() {
           * Mohon Isi Data Dengan Lengkap
         </Text>
       </View>
-    </ImageBackground>
+    </View>
   );
 }

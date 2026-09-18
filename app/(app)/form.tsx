@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { format, addDays } from 'date-fns';
 import { API_URL } from '@/config';
+import { resolveBackendAssetUrl } from '@/utils/image';
 
 type BioporiRecord = {
   name?: string;
@@ -27,18 +28,6 @@ const appendIfPresent = (payload: Record<string, string>, key: string, value?: s
   }
 };
 
-const resolveBackendAssetUrl = (path?: string | null) => {
-  if (!path) return null;
-  if (
-    path.startsWith("http://") ||
-    path.startsWith("https://") ||
-    path.startsWith("file://") ||
-    path.startsWith("content://")
-  ) {
-    return path;
-  }
-  return path.startsWith("/") ? path : `/${path}`;
-};
 
 const BioporiForm = () => {
   const { id } = useLocalSearchParams();
@@ -119,13 +108,14 @@ const BioporiForm = () => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
-        quality: 1,
+        quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets) {
         const uri = result.assets[0].uri;
         setPhoto(uri);
-        setImageUri(uri);
+        setImageUri(result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : uri);
       }
     }
   };
@@ -137,13 +127,14 @@ const BioporiForm = () => {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 1,
+        quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets) {
         const uri = result.assets[0].uri;
         setPhoto(uri);
-        setImageUri(uri);
+        setImageUri(result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : uri);
       }
     }
   };
