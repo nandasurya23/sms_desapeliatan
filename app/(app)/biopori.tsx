@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -9,9 +8,12 @@ import {
   Alert,
   RefreshControl,
   Animated,
-  ScrollView,
+  InteractionManager,
+  FlatList,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import Skeleton from "@/components/Skeleton";
 import { useRouter, useFocusEffect } from "expo-router";
 import { format } from "date-fns";
 import { BACKEND_BASE_URL } from "@/config";
@@ -23,6 +25,7 @@ export default function Biopori() {
   const [filteredData, setFilteredData] = useState<BioporiType[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [clickCounts, setClickCounts] = useState<Record<string, number>>({});
   const [lastClickTime, setLastClickTime] = useState<Record<string, number>>({});
@@ -43,20 +46,26 @@ export default function Biopori() {
     return `${BACKEND_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
   };
 
-  const fetchData = async () => {
-    setRefreshing(true);
+  const fetchData = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setIsLoading(true);
+    
     const res = await getBiopori();
-    if (typeof res === "string") Alert.alert("Error", res);
+    if (typeof res === "string") Alert.alert("Perhatian", res);
     else {
       setBioporiData(res);
       setFilteredData(res);
     }
-    setRefreshing(false);
+    
+    if (isRefresh) setRefreshing(false);
+    else setIsLoading(false);
   };
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchData();
+      InteractionManager.runAfterInteractions(() => {
+        fetchData();
+      });
     }, [])
   );
 
@@ -70,7 +79,7 @@ export default function Biopori() {
   const handleEditClick = (id: string) => router.push(`/form?id=${id}`);
 
   const handleMarkFull = async (id: string) => {
-    const now = Date.now();
+    const now = new Date().getTime();
     if (lastClickTime[id] && now - lastClickTime[id] < 1000) return;
 
     setLastClickTime(prev => ({ ...prev, [id]: now }));
@@ -106,7 +115,7 @@ export default function Biopori() {
       );
       Alert.alert("Berhasil", "Silahkan klik tombol Panen");
     } else {
-      Alert.alert("Error", res);
+      Alert.alert("Perhatian", res);
     }
 
     setTimeout(() => {
@@ -125,19 +134,40 @@ export default function Biopori() {
       );
 
       Alert.alert("Berhasil", "Biopori sudah dipanen. Tombol Penuh tetap aktif!");
-    } else Alert.alert("Error", res);
+    } else Alert.alert("Perhatian", res);
   };
+
+  const renderSkeleton = () => (
+    <View className="flex-1 px-4 mt-4">
+      {[1, 2, 3].map((key) => (
+        <View key={key} className="bg-white border border-gray-200 rounded-xl shadow-md p-4 mb-4">
+          <Skeleton height={208} className="w-full rounded-xl mb-4" />
+          <View className="flex-row justify-between items-center mb-4">
+            <Skeleton width={120} height={24} />
+            <Skeleton width={60} height={24} />
+          </View>
+          <View className="mb-4">
+            <View className="flex-row justify-between mb-2">
+              <Skeleton width={50} height={16} />
+              <Skeleton width={100} height={16} />
+            </View>
+            <View className="flex-row justify-between">
+              <Skeleton width={60} height={16} />
+              <Skeleton width={100} height={16} />
+            </View>
+          </View>
+          <View className="flex-row justify-center space-x-4">
+            <Skeleton className="flex-1 mr-4" height={56} />
+            <Skeleton className="flex-1" height={56} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-200">
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 16 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchData} colors={["#3b82f6"]} />
-        }
-      >
-        <View className="flex-row justify-between items-center px-4 py-4">
+      <View className="flex-row justify-between items-center px-4 py-4">
           <TextInput
             placeholder="Cari Biopori"
             value={searchQuery}
@@ -153,13 +183,25 @@ export default function Biopori() {
           </TouchableOpacity>
         </View>
 
-        <View className="flex-1 px-4 mt-4">
-          {filteredData.length === 0 ? (
-            <View className="bg-white p-6 rounded-xl items-center">
-              <Text className="text-lg text-gray-500">Tidak ada data biopori</Text>
-            </View>
-          ) : (
-            filteredData.map((b) => (
+        {isLoading ? (
+          renderSkeleton()
+        ) : filteredData.length === 0 ? (
+          <View className="bg-white p-6 rounded-xl items-center mx-4 mt-4">
+            <Text className="text-lg text-gray-500">Tidak ada data biopori</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredData}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+            initialNumToRender={2}
+            maxToRenderPerBatch={3}
+            windowSize={5}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} colors={["#3b82f6"]} />
+            }
+            renderItem={({ item: b }) => (
               <View key={b.id} className="bg-white border border-gray-200 rounded-xl shadow-md p-4 mb-4">
                 {b.image_url && (
                   <Image
@@ -232,10 +274,9 @@ export default function Biopori() {
                   </View>
                 )}
               </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
+            )}
+          />
+        )}
     </SafeAreaView>
   );
 }

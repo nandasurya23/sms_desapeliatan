@@ -11,10 +11,10 @@ import {
   Linking,
 } from "react-native";
 import { Modal, Portal, Menu, Provider } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
-import * as SecureStore from "expo-secure-store";
-import { API_URL } from "@/config";
+import apiClient from "@/services/apiClient";
 import { locations } from "@/data/locations";
 import { addStoredBankSampahTotalWeight, getBankSampahTotalWeight } from "../../services/bankSampah";
 import { useFocusEffect } from "expo-router";
@@ -113,36 +113,10 @@ const BankSampah = () => {
   };
 
   const submitToBackend = async () => {
-    const token = await SecureStore.getItemAsync("token");
-    if (!token) {
-      throw new Error("Sesi telah berakhir, silakan login kembali");
-    }
-
-    const response = await fetch(`${API_URL}/add-bank-sampah`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(buildBankSampahPayload()),
-    });
-
-    let result: any = null;
     try {
-      result = await response.json();
-    } catch {
-      try {
-        const text = await response.text();
-        result = text ? { error: text } : null;
-      } catch {
-        result = null;
-      }
-    }
-
-    if (!response.ok) {
-      const err = new Error(result?.error || "Gagal menyimpan bank sampah");
-      (err as Error & { status?: number }).status = response.status;
-      throw err;
+      await apiClient.post(`/add-bank-sampah`, buildBankSampahPayload());
+    } catch (err: any) {
+      throw new Error(err.message || "Gagal menyimpan bank sampah");
     }
   };
 
@@ -152,12 +126,12 @@ const BankSampah = () => {
     const normalizedWeight = normalizeWeight(beratSampah);
 
     if (!alamat || !normalizedWeight || jenisSampah === "Pilih Jenis Sampah") {
-      Alert.alert("Error", "Harap lengkapi semua data sebelum menjual!");
+      Alert.alert("Perhatian", "Harap lengkapi semua data sebelum menjual!");
       return;
     }
 
     if (Number.isNaN(Number(normalizedWeight)) || Number(normalizedWeight) <= 0) {
-      Alert.alert("Error", "Berat sampah harus berupa angka valid");
+      Alert.alert("Perhatian", "Berat sampah harus berupa angka valid");
       return;
     }
 
@@ -182,7 +156,7 @@ const BankSampah = () => {
           } catch (error) {
             const message = error instanceof Error ? error.message : "Gagal menyimpan data bank sampah";
             console.error("Bank sampah submit failed:", error);
-            Alert.alert("Error", message);
+            Alert.alert("Perhatian", message);
           } finally {
             setIsSubmitting(false);
           }
@@ -201,7 +175,7 @@ const BankSampah = () => {
 
   return (
     <Provider>
-      <View className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-gray-50">
         {/* Header */}
         <View className="bg-white px-6 py-4 shadow-sm">
           <View className="flex-row items-center justify-between">
@@ -502,7 +476,7 @@ const BankSampah = () => {
             </View>
           </Modal>
         </Portal>
-      </View>
+      </SafeAreaView>
     </Provider>
   );
 };

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator, TextInput, InteractionManager } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Skeleton from "@/components/Skeleton";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { useRouter } from "expo-router";
 import { Provider as PaperProvider } from "react-native-paper";
-import { API_URL, BACKEND_BASE_URL } from "@/config";
+import apiClient from "@/services/apiClient";
 import { resolveBackendAssetUrl } from '@/utils/image';
 
 interface ProfileData {
@@ -64,39 +66,26 @@ const ProfileScreen = () => {
       try {
         const token = await SecureStore.getItemAsync("token");
         if (!token) {
-          Alert.alert("Error", "Anda belum login.");
-          router.push("/(auth)/login");
           return;
         }
 
-        const response = await fetch(`${API_URL}/profile`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Gagal mengambil data profil");
-        }
-
-        const profileData = result.data || result;
+        const response = await apiClient.get('/profile');
+        const profileData = response.data?.data || response.data;
         setProfile(profileData);
         setNewBanjar(profileData.banjar || "");
       } catch (error: unknown) {
         console.error("Fetch error:", error);
         const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan saat mengambil data";
-        Alert.alert("Error", errorMessage);
+        Alert.alert("Perhatian", errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchProfile();
-  }, [router]);
+    InteractionManager.runAfterInteractions(() => {
+      fetchProfile();
+    });
+  }, []);
 
   const handleImagePick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -141,7 +130,7 @@ const ProfileScreen = () => {
 
       const token = await SecureStore.getItemAsync("token");
       if (!token) {
-        Alert.alert("Error", "Sesi telah berakhir, silakan login kembali");
+        Alert.alert("Perhatian", "Sesi telah berakhir, silakan login kembali");
         router.push("/(auth)/login");
         return;
       }
@@ -159,49 +148,34 @@ const ProfileScreen = () => {
         fields: { banjar?: string; profile_picture?: SelectedProfileImage },
         options?: { allowFailure?: boolean }
       ) => {
-        const payload: Record<string, any> = {};
+        const formData = new FormData();
+        
         if (typeof fields.banjar === "string" && fields.banjar.length > 0) {
-          payload.banjar = fields.banjar;
+          formData.append('banjar', fields.banjar);
         }
-        if (fields.profile_picture && fields.profile_picture.base64) {
-          payload.profile_picture = fields.profile_picture.base64;
-        }
-
-        const response = await fetch(`${API_URL}/profile`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const rawResponse = await response.text();
-        let result: { data?: ProfileData; error?: string } = {};
-        if (rawResponse) {
-          try {
-            result = JSON.parse(rawResponse);
-          } catch {
-            result = { error: rawResponse };
-          }
+        
+        if (fields.profile_picture) {
+          formData.append('profile_picture', {
+            uri: fields.profile_picture.uri,
+            type: fields.profile_picture.type || 'image/jpeg',
+            name: fields.profile_picture.name || 'profile.jpg',
+          } as any);
         }
 
-        console.log("[profile] save response", {
-          status: response.status,
-          ok: response.ok,
-          rawResponse,
-          parsedError: result.error,
-          sentFields: Object.keys(fields),
-        });
-
-        if (!response.ok) {
+        try {
+          const response = await apiClient.put('/profile', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          return response.data?.data || response.data;
+        } catch (error: any) {
           if (options?.allowFailure) {
-            return null;
+             console.warn("Allowed failure in profile update:", error.message);
+             return null;
           }
-          throw new Error(result.error || "Gagal memperbarui profil");
+          throw error;
         }
-
-        return result.data;
       };
 
       let latestProfileData: ProfileData | null | undefined;
@@ -242,7 +216,7 @@ const ProfileScreen = () => {
     } catch (error: unknown) {
       console.error("Save error:", error);
       const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan perubahan";
-      Alert.alert("Error", errorMessage);
+      Alert.alert("Perhatian", errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -261,14 +235,14 @@ const ProfileScreen = () => {
             text: "Keluar",
             onPress: async () => {
               await SecureStore.deleteItemAsync("token");
-              router.push("/(auth)/login");
+              router.replace("/(auth)/login");
             },
           },
         ]
       );
     } else {
       await SecureStore.deleteItemAsync("token");
-      router.push("/(auth)/login");
+      router.replace("/(auth)/login");
     }
   };
 
@@ -276,26 +250,39 @@ const ProfileScreen = () => {
 
   return (
     <PaperProvider>
+      <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView className="flex-1 bg-gray-50">
         {/* Profile Header */}
-        <View className="items-center pt-8 pb-6 bg-white shadow-sm">
+        <View className="items-center pt-6 pb-6 bg-white shadow-sm">
           <TouchableOpacity onPress={handleImagePick} className="relative">
-            <Image
-              source={{
-                uri: newProfileImage?.uri || resolveBackendAssetUrl(profile.profile_picture) || "https://www.gravatar.com/avatar/default?s=200",
-              }}
-              className="w-32 h-32 rounded-full border-4 border-emerald-100"
-            />
-            <View className="absolute bottom-0 right-0 bg-emerald-500 p-2 rounded-full">
+            {isLoading ? (
+              <Skeleton width={128} height={128} borderRadius={64} className="border-4 border-green-100" />
+            ) : (
+              <Image
+                source={{
+                  uri: newProfileImage?.uri || resolveBackendAssetUrl(profile.profile_picture) || "https://www.gravatar.com/avatar/default?s=200",
+                }}
+                className="w-32 h-32 rounded-full border-4 border-green-100"
+              />
+            )}
+            <View className="absolute bottom-0 right-0 bg-navbar p-2 rounded-full">
               <Ionicons name="camera" size={20} color="white" />
             </View>
           </TouchableOpacity>
-          <Text className="mt-4 text-2xl font-bold text-gray-800">
-            {isLoading ? "Loading..." : profile.username}
-          </Text>
-          <Text className="text-gray-500">
-            {profile.banjar || "Belum memilih banjar"}
-          </Text>
+          {isLoading ? (
+            <Skeleton width={150} height={28} className="mt-4" />
+          ) : (
+            <Text className="mt-4 text-2xl font-bold text-gray-800">
+              {profile.username}
+            </Text>
+          )}
+          {isLoading ? (
+            <Skeleton width={100} height={16} className="mt-1" />
+          ) : (
+            <Text className="text-gray-500 mt-1">
+              {profile.banjar || "Belum memilih banjar"}
+            </Text>
+          )}
         </View>
 
         {/* Save Button */}
@@ -303,7 +290,7 @@ const ProfileScreen = () => {
           <TouchableOpacity
             onPress={handleSave}
             disabled={isSaving}
-            className={`mx-4 mt-4 p-3 rounded-lg flex-row justify-center items-center ${isSaving ? 'bg-emerald-300' : 'bg-emerald-500'
+            className={`mx-4 mt-4 p-3 rounded-lg flex-row justify-center items-center ${isSaving ? 'opacity-70 bg-navbar' : 'bg-navbar'
               }`}
           >
             {isSaving ? (
@@ -321,26 +308,26 @@ const ProfileScreen = () => {
             <Text className="text-sm font-medium text-gray-500">Informasi Akun</Text>
             <View className="mt-4 space-y-5">
               <View className="flex-row items-center">
-                <Ionicons name="person" size={20} color="#10b981" className="mr-3" />
+                <Ionicons name="person" size={20} color="#369E4E" className="mr-3" />
                 <View>
                   <Text className="text-xs text-gray-400">Username</Text>
-                  <Text className="text-base font-medium">{profile.username || "-"}</Text>
+                  {isLoading ? <Skeleton width={120} height={20} className="mt-1" /> : <Text className="text-base font-medium">{profile.username || "-"}</Text>}
                 </View>
               </View>
 
               <View className="flex-row items-center">
-                <Ionicons name="call" size={20} color="#10b981" className="mr-3" />
+                <Ionicons name="call" size={20} color="#369E4E" className="mr-3" />
                 <View>
                   <Text className="text-xs text-gray-400">Nomor Telepon</Text>
-                  <Text className="text-base font-medium">{profile.phone_number || "-"}</Text>
+                  {isLoading ? <Skeleton width={120} height={20} className="mt-1" /> : <Text className="text-base font-medium">{profile.phone_number || "-"}</Text>}
                 </View>
               </View>
 
               <View className="flex-row items-center">
-                <Ionicons name="mail" size={20} color="#10b981" className="mr-3" />
+                <Ionicons name="mail" size={20} color="#369E4E" className="mr-3" />
                 <View>
                   <Text className="text-xs text-gray-400">Email</Text>
-                  <Text className="text-base font-medium">{profile.email || "-"}</Text>
+                  {isLoading ? <Skeleton width={180} height={20} className="mt-1" /> : <Text className="text-base font-medium">{profile.email || "-"}</Text>}
                 </View>
               </View>
             </View>
@@ -348,12 +335,12 @@ const ProfileScreen = () => {
 
           <View className="border-t border-gray-100 pt-6">
             <Text className="text-sm font-medium text-gray-500">Statistik</Text>
-            <View className="mt-4 flex-row justify-between items-center bg-emerald-50 rounded-lg p-4">
+            <View className="mt-4 flex-row justify-between items-center bg-green-50 rounded-lg p-4">
               <View className="flex-row items-center">
-                <Ionicons name="leaf" size={24} color="#10b981" className="mr-3" />
+                <Ionicons name="leaf" size={24} color="#369E4E" className="mr-3" />
                 <View>
                   <Text className="text-xs text-gray-500">Biopori Ditanam</Text>
-                  <Text className="text-xl font-bold text-gray-800">{profile.biopori_count}</Text>
+                  {isLoading ? <Skeleton width={40} height={24} className="mt-1" /> : <Text className="text-xl font-bold text-gray-800">{profile.biopori_count}</Text>}
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
@@ -382,6 +369,7 @@ const ProfileScreen = () => {
           <Text className="ml-2 text-red-500 font-medium">Keluar</Text>
         </TouchableOpacity>
       </ScrollView>
+      </SafeAreaView>
     </PaperProvider>
   );
 };

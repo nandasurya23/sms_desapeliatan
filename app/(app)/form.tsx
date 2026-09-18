@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, ScrollView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, ScrollView, Platform, Alert } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { format, addDays } from 'date-fns';
-import { API_URL } from '@/config';
 import { resolveBackendAssetUrl } from '@/utils/image';
+import apiClient from '@/services/apiClient';
 
 type BioporiRecord = {
   name?: string;
@@ -39,35 +39,18 @@ const BioporiForm = () => {
   const [endTime, setEndTime] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
   const [photo, setPhoto] = useState<string | undefined>();
-  const [isEditMode, setIsEditMode] = useState(false);
+  const isEditMode = !!id;
   const [existingBiopori, setExistingBiopori] = useState<BioporiRecord | null>(null);
 
   const router = useRouter();
 
   const loadBioporiData = useCallback(async () => {
     try {
-      const token = await SecureStore.getItemAsync('token');
-      if (!token) {
-        Alert.alert('Error', 'Sesi telah berakhir, silakan login kembali');
-        router.replace('/(auth)/login');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/biopori/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      let result: any = null;
-      try {
-        result = await response.json();
-      } catch {
-        result = null;
-      }
-
-      if (result && response.ok) {
-        const bioporiData: BioporiRecord = result.data || result || {};
-        setExistingBiopori(bioporiData);
-        setName(bioporiData.name || '');
+      const response = await apiClient.get(`/biopori/${id}`);
+      const bioporiData: BioporiRecord = response.data?.data || response.data || {};
+      
+      setExistingBiopori(bioporiData);
+      setName(bioporiData.name || '');
         if (bioporiData.image_url) {
           const resolvedImage = resolveBackendAssetUrl(bioporiData.image_url);
           setImageUri(resolvedImage || bioporiData.image_url);
@@ -87,18 +70,19 @@ const BioporiForm = () => {
         if (loadedEndTime) {
           setEndTime(new Date(`1970-01-01T${loadedEndTime}`));
         }
-        return;
-      }
-      Alert.alert('Error', 'Gagal mengambil data biopori');
-    } catch {
-      Alert.alert('Error', 'Terjadi kesalahan saat mengambil data biopori');
+      return;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      Alert.alert('Perhatian', msg || 'Terjadi kesalahan saat mengambil data biopori');
     }
-  }, [id, router]);
+  }, [id]);
 
   useEffect(() => {
     if (id) {
-      loadBioporiData();
-      setIsEditMode(true);
+      const init = async () => {
+        await loadBioporiData();
+      };
+      init();
     }
   }, [id, loadBioporiData]);
 
@@ -153,25 +137,14 @@ const BioporiForm = () => {
 
   const onSubmit = async () => {
     if (!name.trim() || !date || !time) {
-      Alert.alert('Error', 'Nama, tanggal, dan waktu wajib diisi');
+      Alert.alert('Perhatian', 'Nama, tanggal, dan waktu wajib diisi');
       return;
     }
 
     setLoading(true);
 
     try {
-      const token = await SecureStore.getItemAsync('token');
-      if (!token) {
-        Alert.alert('Error', 'Sesi telah berakhir, silakan login kembali');
-        router.replace('/(auth)/login');
-        return;
-      }
-
-      const url = isEditMode
-        ? `${API_URL}/biopori/${id}`
-        : `${API_URL}/biopori`;
-
-      const method = isEditMode ? 'PUT' : 'POST';
+      const url = isEditMode ? `/biopori/${id}` : `/biopori`;
       const existingEndDate = existingBiopori?.end_date || existingBiopori?.endDate;
       const existingEndTime = existingBiopori?.end_time || existingBiopori?.endTime;
       const payload: Record<string, string> = {
@@ -195,29 +168,16 @@ const BioporiForm = () => {
         appendIfPresent(payload, 'end_time', format(endTime, 'HH:mm'));
       }
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      let result: any = null;
-      try {
-        result = await response.json();
-      } catch {
-        result = null;
+      if (isEditMode) {
+        await apiClient.put(url, payload);
+      } else {
+        await apiClient.post(url, payload);
       }
-
-      if (response.ok && result) {
-        router.push('/biopori');
-        return;
-      }
-      Alert.alert('Error', result?.error || 'Gagal menyimpan biopori');
-    } catch {
-      Alert.alert('Error', 'Terjadi kesalahan saat menyimpan biopori');
+      
+      router.push('/biopori');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      Alert.alert('Perhatian', msg || 'Terjadi kesalahan saat menyimpan biopori');
     } finally {
       setLoading(false);
     }

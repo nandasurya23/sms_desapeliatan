@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { SafeAreaView, View, Text, TouchableOpacity, FlatList, Image, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, FlatList, Image, ScrollView, InteractionManager } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import * as SecureStore from "expo-secure-store";
 import { useFocusEffect, useRouter } from 'expo-router';
 import { locations } from "@/data/locations";
 import { getUserData } from "@/services/auth";
 import { getBankSampahTotalWeight } from "@/services/bankSampah";
+import Skeleton from "@/components/Skeleton";
 
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -18,51 +19,56 @@ const getGreeting = () => {
 export default function Home() {
     const [username, setUsername] = useState("");
     const [totalTransaksi, setTotalTransaksi] = useState(0);
+    const [isLoadingUser, setIsLoadingUser] = useState(true);
+    const [isLoadingTotal, setIsLoadingTotal] = useState(true);
     const [error, setError] = useState(""); 
     const router = useRouter();
 
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                const token = await SecureStore.getItemAsync("token");
-
-                if (!token) {
-                    router.replace("/(auth)/login"); 
-                    return;
-                }
-
+                // Hapus check token manual karena sudah di-handle oleh _layout.tsx
                 const data = await getUserData();
                 if (data.error) {
                     setError(data.error);
                     return;
                 }
 
-                if (data.data?.username) {
-                    setUsername(data.data.username);
+                const fetchedUsername = ('username' in data ? (data as { username?: string }).username : data.data?.username);
+                if (fetchedUsername) {
+                    setUsername(fetchedUsername);
                 } else {
                     setError("Data profil tidak lengkap");
                 }
             } catch (error) {
                 const message = error instanceof Error ? error.message : "Terjadi kesalahan saat mengambil data pengguna";
                 setError(message);
+            } finally {
+                setIsLoadingUser(false);
             }
         };
 
-        fetchUserData();
-    }, [router]);
+        InteractionManager.runAfterInteractions(() => {
+            fetchUserData();
+        });
+    }, []);
 
     useFocusEffect(
         useCallback(() => {
             let active = true;
 
             const loadTotal = async () => {
+                setIsLoadingTotal(true);
                 const total = await getBankSampahTotalWeight();
                 if (active) {
                     setTotalTransaksi(total);
+                    setIsLoadingTotal(false);
                 }
             };
 
-            loadTotal();
+            InteractionManager.runAfterInteractions(() => {
+                loadTotal();
+            });
 
             return () => {
                 active = false;
@@ -75,15 +81,24 @@ export default function Home() {
         <SafeAreaView className="flex-1 bg-gray-200">
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
                 <View className="flex-row justify-between items-center px-4 py-2 bg-white">
-                    <Ionicons name="person-circle-outline" size={32} color="#3DA656" />
+                    <Ionicons name="person-circle-outline" size={32} color="#369E4E" />
                     <View className="flex-1 ml-4">
-                        <Text className="text-lg font-bold">
-                            {getGreeting()}, {username || "Pengguna"}!
-                        </Text>
-                        <Text className="text-gray-500 text-sm">Semoga harimu menyenangkan 😊</Text>
+                        {isLoadingUser ? (
+                            <>
+                                <Skeleton width={150} height={20} className="mb-2" />
+                                <Skeleton width={200} height={14} />
+                            </>
+                        ) : (
+                            <>
+                                <Text className="text-lg font-bold">
+                                    {getGreeting()}, {username || "Pengguna"}!
+                                </Text>
+                                <Text className="text-gray-500 text-sm">Semoga harimu menyenangkan 😊</Text>
+                            </>
+                        )}
                     </View>
                     <TouchableOpacity onPress={() => router.push("/profile")}>
-                        <Ionicons name="settings-outline" size={24} color="#3DA656" />
+                        <Ionicons name="settings-outline" size={24} color="#369E4E" />
                     </TouchableOpacity>
                 </View>
 
@@ -101,18 +116,25 @@ export default function Home() {
                         className="w-full h-40 rounded-xl mb-7"
                         resizeMode="cover"
                     />
-                    <View className="bg-gradientStart p-5 rounded-xl mb-4">
-                        <Text className="text-white text-xl font-bold">Total Transaksi: {totalTransaksi}kg</Text>
+                    <View className="bg-gradientStart p-5 rounded-xl mb-4 h-[68px] justify-center">
+                        {isLoadingTotal ? (
+                            <Skeleton width={180} height={20} />
+                        ) : (
+                            <Text className="text-white text-xl font-bold">Total Transaksi: {totalTransaksi}kg</Text>
+                        )}
                     </View>
                     <View className="flex-row items-center justify-between mb-5">
                         <Text className="text-lg font-bold">Lokasi Daur Ulang Terdekat</Text>
-                        <Text className="text-lg text-green-600">Lihat Semua</Text>
+                        <Text className="text-lg text-navbar">Lihat Semua</Text>
                     </View>
                     <FlatList
                         data={locations}
                         horizontal
                         keyExtractor={(item) => item.id}
                         showsHorizontalScrollIndicator={false}
+                        initialNumToRender={2}
+                        maxToRenderPerBatch={3}
+                        windowSize={3}
                         contentContainerStyle={{ paddingHorizontal: 16 }}
                         renderItem={({ item }) => (
                             <View className="bg-white rounded-xl shadow-md mr-4 p-4 w-64">
@@ -133,7 +155,7 @@ export default function Home() {
                     {/* Edukasi */}
                     <View className="flex-row items-center justify-between my-5">
                         <Text className="text-lg font-bold">Edukasi & Tips Daur Ulang</Text>
-                        <Text className="text-lg text-green-600">Lihat Semua</Text>
+                        <Text className="text-lg text-navbar">Lihat Semua</Text>
                     </View>
                     <View className="bg-white rounded-xl shadow-md p-4 w-full">
                         <Image

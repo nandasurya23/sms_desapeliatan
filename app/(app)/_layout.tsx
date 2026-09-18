@@ -2,7 +2,6 @@
 import { Slot } from "expo-router";
 import BottomNavbar from "@/components/BottomNavbar";
 import { View, StyleSheet } from "react-native";
-
 export default function AppLayout() {
   return (
     <View style={styles.container}>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Alert, InteractionManager } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Skeleton from "@/components/Skeleton";
 import { createTransaction, getTransactionHistory, TransactionItem } from "@/services/transaction";
 
 export default function TransactionScreen() {
@@ -27,12 +29,14 @@ export default function TransactionScreen() {
   };
 
   useEffect(() => {
-    loadHistory();
+    InteractionManager.runAfterInteractions(() => {
+      loadHistory();
+    });
   }, []);
 
   const handleSubmit = async () => {
     if (!transactionId.trim() || !transactionValue.trim()) {
-      Alert.alert("Error", "transaction_id dan transaction_value wajib diisi");
+      Alert.alert("Perhatian", "ID Transaksi dan Nominal wajib diisi");
       return;
     }
 
@@ -110,7 +114,7 @@ export default function TransactionScreen() {
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={submitting}
-            className={`bg-emerald-500 rounded-xl py-3 items-center justify-center ${submitting ? "opacity-50" : ""}`}
+            className={`bg-navbar rounded-xl py-3 items-center justify-center ${submitting ? "opacity-50" : ""}`}
           >
             {submitting ? (
               <ActivityIndicator color="#fff" />
@@ -123,8 +127,16 @@ export default function TransactionScreen() {
         <View className="mt-5">
           <Text className="text-lg font-bold text-gray-800 mb-3">History</Text>
           {loadingHistory ? (
-            <View className="bg-white rounded-xl p-4 items-center">
-              <ActivityIndicator />
+            <View>
+              {[1, 2, 3].map((key) => (
+                <View key={key} className="bg-white rounded-xl p-4 mb-3 border border-gray-200">
+                  <View className="flex-row justify-between items-center mb-2">
+                    <Skeleton width={100} height={20} />
+                    <Skeleton width={80} height={20} />
+                  </View>
+                  <Skeleton width={120} height={16} />
+                </View>
+              ))}
             </View>
           ) : (
             <FlatList
@@ -134,7 +146,7 @@ export default function TransactionScreen() {
                 <View className="bg-white rounded-xl p-4 mb-3 border border-gray-200">
                   <View className="flex-row justify-between items-center">
                     <Text className="text-gray-800 font-bold">{item.transaction_id}</Text>
-                    <Text className="text-emerald-600 font-bold">{String(item.transaction_value)}</Text>
+                    <Text className="text-navbar font-bold">{String(item.transaction_value)}</Text>
                   </View>
                   {item.transaction_date ? (
                     <Text className="text-gray-500 mt-2">{item.transaction_date}</Text>
