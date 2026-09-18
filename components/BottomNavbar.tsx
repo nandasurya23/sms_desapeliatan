@@ -1,27 +1,32 @@
 import { useRouter, usePathname } from "expo-router";
 import { View, Text, TouchableOpacity } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function BottomNavbar() {
   const pathname = usePathname(); // Get the current path
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const getTabStyle = (tabRoute: string) => {
     if (pathname === tabRoute) {
       return {
-        iconColor: "#369E4E", // Active color
-        textColor: "text-navbar", // Active text style
+        iconColor: "#369E4E", // Active color (navbar theme)
+        textColor: "text-navbar font-semibold", // Active text style
       };
     } else {
       return {
-        iconColor: "gray", // Inactive color
-        textColor: "text-gray-600", // Inactive text style
+        iconColor: "#9ca3af", // gray-400
+        textColor: "text-gray-400", // Inactive text style
       };
     }
   };
 
   return (
-    <View className="flex-row justify-around bg-gray-100 py-4 border-t border-gray-300">
+    <View 
+      className="flex-row justify-around bg-white pt-3 border-t border-gray-200"
+      style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+    >
       <TouchableOpacity onPress={() => router.push("/")} className="items-center">
         <Ionicons
           name="home-outline"

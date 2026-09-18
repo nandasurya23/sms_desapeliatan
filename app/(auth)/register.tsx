@@ -26,20 +26,28 @@ export default function Register() {
 
   const handleRegister = async () => {
     // Validasi sebelum panggil API
-    if (!username || !phoneNumber || !email || !password || !confirmPassword) {
-      return Alert.alert("Error", "Semua field harus diisi");
+    if (!username || !password || !confirmPassword) {
+      return Alert.alert("Perhatian", "Username dan Password wajib diisi");
+    }
+
+    if (username.length < 3) {
+      return Alert.alert("Perhatian", "Username minimal 3 karakter");
     }
 
     if (password !== confirmPassword) {
-      return Alert.alert("Error", "Password tidak cocok");
-    }
-
-    if (!email.includes("@")) {
-      return Alert.alert("Error", "Email harus mengandung @");
+      return Alert.alert("Perhatian", "Password tidak cocok");
     }
 
     if (password.length < 6) {
-      return Alert.alert("Error", "Password minimal 6 karakter");
+      return Alert.alert("Perhatian", "Password minimal 6 karakter");
+    }
+
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      return Alert.alert("Perhatian", "Format email tidak valid");
+    }
+
+    if (phoneNumber && !/^\d{9,15}$/.test(phoneNumber)) {
+      return Alert.alert("Perhatian", "Nomor telepon harus berupa 9-15 digit angka");
     }
 
     setLoading(true);
@@ -54,15 +62,15 @@ export default function Register() {
 
       setLoading(false);
 
-      if (data.token) {
+      if (!data.error) {
         Alert.alert("Sukses", "Pendaftaran berhasil! Silakan login.");
         router.replace("/(auth)/login");
       } else {
-        Alert.alert("Error", data.error || "Terjadi kesalahan. Silakan coba lagi.");
+        Alert.alert("Perhatian", data.error || "Terjadi kesalahan. Silakan coba lagi.");
       }
     } catch (err) {
       setLoading(false);
-      Alert.alert("Error", "Koneksi bermasalah. Silakan coba lagi.");
+      Alert.alert("Perhatian", "Koneksi bermasalah. Silakan coba lagi.");
       console.error("Register error:", err);
     }
   };
@@ -91,18 +99,21 @@ export default function Register() {
 
         {/* Phone */}
         <TextInput
-          placeholder="Masukan Nomer HP Anda"
+          placeholder="Masukan Nomer HP Anda (Opsional)"
           value={phoneNumber}
           onChangeText={setPhoneNumber}
+          keyboardType="numeric"
           className="w-full px-3 py-5 rounded-xl mb-4 bg-white"
           placeholderTextColor="#888"
         />
 
         {/* Email */}
         <TextInput
-          placeholder="Masukan Email Anda"
+          placeholder="Masukan Email Anda (Opsional)"
           value={email}
           onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
           className="w-full px-3 py-5 rounded-xl mb-4 bg-white"
           placeholderTextColor="#888"
         />

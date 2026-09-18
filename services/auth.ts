@@ -1,14 +1,16 @@
 // services/auth.ts
 import * as SecureStore from "expo-secure-store";
-import { API_URL } from "../config/index";
+import apiClient from "./apiClient";
 
 interface LoginResponse {
-  token: string;
+  success?: boolean;
+  token?: string;
   user?: { id: string; username: string };
   error?: string;
 }
 
 interface ProfileResponse {
+  success?: boolean;
   data?: {
     id?: string | number;
     username?: string;
@@ -36,65 +38,40 @@ interface RegisterResponse {
 // ===== LOGIN =====
 export async function login(username: string, password: string): Promise<LoginResponse> {
   try {
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    const response = await apiClient.post<{ data?: LoginResponse, token?: string }>("/login", { username, password });
+    
+    const payload = response.data.data || response.data;
 
-    const data = await response.json();
-
-    if (!response.ok) return { token: "", error: data.error || "Login failed" };
-
-    if (data.token) await SecureStore.setItemAsync("token", data.token);
-
-    return data;
-  } catch (err) {
-    return { token: "", error: "Network error" };
+    if (payload.token) {
+      await SecureStore.setItemAsync("token", payload.token);
+    }
+    
+    return payload;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Gagal terhubung ke server. Periksa koneksi Anda.";
+    return { success: false, token: "", error: errorMessage };
   }
 }
 
-// ===== REGISTER =====
-export async function register(user: RegisterData): Promise<RegisterResponse> {
+export async function register(user: RegisterData): Promise<{ success?: boolean; error?: string; message?: string }> {
   try {
-    const response = await fetch(`${API_URL}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(user),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) return { error: data.error || "Registration failed" };
-
-    if (data.token) await SecureStore.setItemAsync("token", data.token);
-
-    return data;
-  } catch (err) {
-    return { error: "Network error" };
+    const response = await apiClient.post<{ success?: boolean; message?: string }>("/register", user);
+    
+    // Register success response usually just returns { success: true, message: "..." }
+    return response.data;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Gagal terhubung ke server. Periksa koneksi Anda.";
+    return { success: false, error: errorMessage };
   }
 }
 
 // ===== GET PROFILE =====
 export async function getUserData(): Promise<ProfileResponse> {
   try {
-    const token = await SecureStore.getItemAsync("token");
-    if (!token) return { error: "No token found" };
-
-    const response = await fetch(`${API_URL}/profile`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) return { error: data.error || "Failed to fetch profile" };
-
-    return data;
-  } catch (err) {
-    return { error: "Network error" };
+    const response = await apiClient.get<{ data?: ProfileResponse }>("/profile");
+    return response.data.data || response.data;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Gagal terhubung ke server. Periksa koneksi Anda.";
+    return { error: errorMessage };
   }
 }

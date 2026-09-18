@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "sms",
-    "slug": "sms",
+    "name": "sms-desa-peliatan",
+    "slug": "sms-desa-peliatan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icons.png",
@@ -44,9 +44,6 @@
     "extra": {
       "router": {
         "origin": false
-      },
-      "eas": {
-        "projectId": "dbfe1be6-6b28-46da-bd8e-141a4c1dd130"
       }
     }
   }

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { jwtDecode } from "jwt-decode";
 import { API_URL } from "@/config";
+import apiClient from "./apiClient";
 
 type BankSampahItem = {
   weight?: string | number;
@@ -84,30 +85,18 @@ export async function addStoredBankSampahTotalWeight(weight: number): Promise<nu
 }
 
 export async function getBankSampahTotalWeight(): Promise<number> {
-  const token = await SecureStore.getItemAsync("token");
-  if (!token) return await getStoredBankSampahTotalWeight();
-
   try {
-    const response = await fetch(`${API_URL}/bank-sampah`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await apiClient.get("/bank-sampah");
+    const data = response.data;
+    const items = extractItems(data);
 
-    if (response.ok) {
-      const data = await readJson(response);
-      const items = extractItems(data);
-
-      if (items.length > 0) {
-        const total = items.reduce((sum, item) => sum + normalizeWeight(item.weight), 0);
-        await setStoredBankSampahTotalWeight(total);
-        return total;
-      }
+    if (items.length > 0) {
+      const total = items.reduce((sum, item) => sum + normalizeWeight(item.weight), 0);
+      await setStoredBankSampahTotalWeight(total);
+      return total;
     }
   } catch {
-    // Fallback to stored value
+    // Fallback to stored value on error
   }
 
   return await getStoredBankSampahTotalWeight();

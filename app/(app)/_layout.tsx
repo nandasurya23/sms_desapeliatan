@@ -1,8 +1,7 @@
 // app/(app)/_layout.tsx
-import { Slot } from "expo-router";
+import { Redirect, Slot } from "expo-router";
 import BottomNavbar from "@/components/BottomNavbar";
-import { View, StyleSheet } from "react-native";
-
+import { View, StyleSheet, ActivityIndicator } from "react-native";
 export default function AppLayout() {
   return (
     <View style={styles.container}>

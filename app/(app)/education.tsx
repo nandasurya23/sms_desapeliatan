@@ -1,5 +1,5 @@
-import { View, Text, SafeAreaView, ScrollView, Image, TouchableOpacity } from 'react-native'
-import React from 'react'
+import { View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import YoutubeIframe from 'react-native-youtube-iframe';
 import { MaterialIcons } from '@expo/vector-icons';
 
