@@ -39,7 +39,7 @@ const BioporiForm = () => {
   const [endTime, setEndTime] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
   const [photo, setPhoto] = useState<string | undefined>();
-  const [isEditMode, setIsEditMode] = useState(false);
+  const isEditMode = !!id;
   const [existingBiopori, setExistingBiopori] = useState<BioporiRecord | null>(null);
 
   const router = useRouter();
@@ -71,16 +71,18 @@ const BioporiForm = () => {
           setEndTime(new Date(`1970-01-01T${loadedEndTime}`));
         }
       return;
-    } catch (error: any) {
-      Alert.alert('Perhatian', error.message || 'Terjadi kesalahan saat mengambil data biopori');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      Alert.alert('Perhatian', msg || 'Terjadi kesalahan saat mengambil data biopori');
     }
-  }, [id, router]);
+  }, [id]);
 
   useEffect(() => {
     if (id) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      loadBioporiData();
-      setIsEditMode(true);
+      const init = async () => {
+        await loadBioporiData();
+      };
+      init();
     }
   }, [id, loadBioporiData]);
 
@@ -173,8 +175,9 @@ const BioporiForm = () => {
       }
       
       router.push('/biopori');
-    } catch (error: any) {
-      Alert.alert('Perhatian', error.message || 'Terjadi kesalahan saat menyimpan biopori');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      Alert.alert('Perhatian', msg || 'Terjadi kesalahan saat menyimpan biopori');
     } finally {
       setLoading(false);
     }

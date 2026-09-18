@@ -66,8 +66,6 @@ const ProfileScreen = () => {
       try {
         const token = await SecureStore.getItemAsync("token");
         if (!token) {
-          Alert.alert("Perhatian", "Anda belum login.");
-          router.push("/(auth)/login");
           return;
         }
 

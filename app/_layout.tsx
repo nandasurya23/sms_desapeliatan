@@ -1,6 +1,5 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as SplashScreen from "expo-splash-screen";
 import '../global.css';
@@ -12,15 +11,12 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [isReady, setIsReady] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = await SecureStore.getItemAsync("token");
-        setIsAuthenticated(!!token);
-      } catch {
-        setIsAuthenticated(false);
+        await SecureStore.getItemAsync("token");
+      } catch (error: unknown) {
+        console.warn("Auth check failed:", error instanceof Error ? error.message : String(error));
       } finally {
         setIsReady(true);
       }
@@ -53,18 +49,6 @@ export default function RootLayout() {
 
   if (!isReady) {
     return null; // Tetap tampilkan native splash screen
-  }
-
-  const inAuthGroup = segments[0] === "(auth)";
-  
-  // Use a combination of local state and actual token check logic in useEffect.
-  // While we wait for redirect, we can show null to prevent flashing auth screens.
-  if (!isAuthenticated && !inAuthGroup) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#3DA656" />
-      </View>
-    );
   }
 
   // Render children routes

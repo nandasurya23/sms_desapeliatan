@@ -30,11 +30,6 @@ interface RegisterData {
   password: string;
 }
 
-interface RegisterResponse {
-  token?: string;
-  error?: string;
-}
-
 // ===== LOGIN =====
 export async function login(username: string, password: string): Promise<LoginResponse> {
   try {
@@ -46,7 +41,7 @@ export async function login(username: string, password: string): Promise<LoginRe
       await SecureStore.setItemAsync("token", payload.token);
     }
     
-    return payload;
+    return payload as LoginResponse;
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Gagal terhubung ke server. Periksa koneksi Anda.";
     return { success: false, token: "", error: errorMessage };
@@ -69,7 +64,7 @@ export async function register(user: RegisterData): Promise<{ success?: boolean;
 export async function getUserData(): Promise<ProfileResponse> {
   try {
     const response = await apiClient.get<{ data?: ProfileResponse }>("/profile");
-    return response.data.data || response.data;
+    return (response.data.data || response.data) as ProfileResponse;
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Gagal terhubung ke server. Periksa koneksi Anda.";
     return { error: errorMessage };
