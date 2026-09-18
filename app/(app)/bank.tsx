@@ -64,7 +64,8 @@ const BankSampah = () => {
     const options: ImagePicker.ImagePickerOptions = {
       mediaTypes: ["images"], 
       allowsMultipleSelection: true,
-      quality: 1,
+      quality: 0.5,
+      base64: true,
     };
 
     let result;
@@ -81,7 +82,7 @@ const BankSampah = () => {
     }
 
     if (!result.canceled) {
-      const selected = result.assets.map((asset) => asset.uri);
+      const selected = result.assets.map((asset) => asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
       setSelectedImages(prev => [...prev, ...selected].slice(0, 3));
     }
   };
@@ -107,8 +108,7 @@ const BankSampah = () => {
       address: alamat.trim(),
       weight: Number(normalizedWeight).toString(),
       category: jenisSampah,
-      // images sengaja tidak dipaksa dikirim dulu supaya sesuai kontrak final
-      // dan menghindari body multipart yang tidak terbaca backend.
+      images: selectedImages.length > 0 ? selectedImages : undefined,
     };
   };
 

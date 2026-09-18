@@ -197,7 +197,7 @@ export default function Biopori() {
                   <View className="flex-row justify-between">
                     <Text className="text-gray-700 text-base font-semibold">Selesai:</Text>
                     <Text className="text-gray-700 text-base">
-                      {format(new Date(b.end_date), 'dd MMM yyyy')} • {b.end_time.slice(0,5)}
+                      {b.end_date ? format(new Date(b.end_date), 'dd MMM yyyy') : '-'} • {b.end_time ? b.end_time.slice(0,5) : '-'}
                     </Text>
                   </View>
                 </View>

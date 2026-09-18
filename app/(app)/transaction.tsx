@@ -15,7 +15,7 @@ export default function TransactionScreen() {
     setLoadingHistory(true);
     setError("");
 
-    const result = await getTransactionHistory("me");
+    const result = await getTransactionHistory();
     if (typeof result === "string") {
       setError(result);
       setHistory([]);

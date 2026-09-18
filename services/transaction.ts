@@ -46,13 +46,13 @@ export async function createTransaction(payload: {
   return data;
 }
 
-export async function getTransactionHistory(routeParam = "me"): Promise<TransactionItem[] | string> {
+export async function getTransactionHistory(): Promise<TransactionItem[] | string> {
   const token = await SecureStore.getItemAsync("token");
   if (!token) {
     return "Token tidak ditemukan";
   }
 
-  const response = await fetch(`${API_URL}/transaction/${routeParam}`, {
+  const response = await fetch(`${API_URL}/transaction`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
